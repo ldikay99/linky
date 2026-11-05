@@ -1,0 +1,25 @@
+{
+  "uiObserved": false,
+  "uiAreaProjects": [
+    { "label": "[MOCK no verificado] Área Demo A", "verifiedFromUi": false },
+    { "label": "[MOCK no verificado] Área Demo B", "verifiedFromUi": false }
+  ],
+  "chosenAreaProjectLabel": "[MOCK no verificado] Área Demo A",
+  "uiTaskOptions": [
+    { "label": "Tarea Personalizada", "verifiedFromUi": false },
+    { "label": "[MOCK no verificado] Otra tarea", "verifiedFromUi": false }
+  ],
+  "chosenTaskLabel": "Tarea Personalizada",
+  "uiTransportOptions": [
+    { "label": "🏠 Trabajo Remoto", "verifiedFromUi": false },
+    { "label": "[MOCK no verificado] vehiculo particular", "verifiedFromUi": false },
+    { "label": "[MOCK no verificado] moto particular", "verifiedFromUi": false },
+    { "label": "[MOCK no verificado] transporte publico", "verifiedFromUi": false },
+    { "label": "[MOCK no verificado] carro compartido", "verifiedFromUi": false },
+    { "label": "[MOCK no verificado] bicicleta", "verifiedFromUi": false },
+    { "label": "[MOCK no verificado] patineta electrica", "verifiedFromUi": false },
+    { "label": "[MOCK no verificado] apps de movilidad", "verifiedFromUi": false }
+  ],
+  "chosenTransportLabel": "🏠 Trabajo Remoto",
+  "azureProjectHints": ["Example Project", "ControlDB-synthetic"]
+}

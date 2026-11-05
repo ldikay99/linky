@@ -1,0 +1,21 @@
+{
+  "op": "create",
+  "dateYmd": "2026-11-05",
+  "activitiesCoverFullDay": true,
+  "sustainedActivityHours": 8.5,
+  "coverageProof": {
+    "sustainedActivityHours": 8.5,
+    "coversDraftDedication": true,
+    "source": "azure_confirmed"
+  },
+  "draft": {
+    "dateYmd": "2026-11-05",
+    "areaProjectLabel": "[MOCK no verificado] Área Demo A",
+    "taskLabel": "Tarea Personalizada",
+    "hours": 8.5,
+    "description": "Avance confirmado en tareas Azure del día (sintético): mejoras de seguridad y pruebas de integración en ControlDB-synthetic.",
+    "evidenceUrls": ["https://github.com/example/ControlDB-synthetic"],
+    "transportLabel": "🏠 Trabajo Remoto",
+    "transportIsDailyOverride": false
+  }
+}

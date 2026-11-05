@@ -16,7 +16,9 @@
     "linky": "tsx agent/lib/cli/main.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "demo:mock": "tsx scripts/demo-mock.ts"
+    "demo:mock": "tsx scripts/demo-mock.ts",
+    "demo:ripor": "tsx scripts/demo-ripor-mock.ts",
+    "scan": "tsx scripts/scan-secrets.ts"
   },
   "dependencies": {
     "@napi-rs/keyring": "^2.1.2",
@@ -34,7 +36,7 @@
   "engines": {
     "node": "24.x"
   },
-  "description": "Linky: CLI + skill agn\u00f3stica para onboarding y registro diario en Azure Boards (secretos fuera del repo)",
+  "description": "Linky: CLI + skills agn\u00f3sticas Azure Boards + Ripor (UI), secretos fuera del repo",
   "bin": {
     "linky": "./agent/lib/cli/main.ts"
   },

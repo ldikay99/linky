@@ -50,8 +50,8 @@ cp examples/synthetic/onboarding.json ./my-onboarding.json
 ### Demo sin Azure real
 
 ```bash
-npm run linky -- onboarding --answers examples/synthetic/onboarding.json --mock --secret-backend session --data-dir ./.linky-demo
-npm run linky -- status --data-dir ./.linky-demo
+npm run linky -- onboarding --answers examples/synthetic/onboarding.json --mock --secret-backend session --data-dir "$HOME/.linky-demo"
+npm run linky -- status --data-dir "$HOME/.linky-demo"
 ```
 
 ### Secretos y vencimiento
@@ -68,11 +68,11 @@ npm run linky -- status --data-dir ./.linky-demo
 ## Flujo diario
 
 ```bash
-npm run linky -- plan --day examples/synthetic/day-plan.json --data-dir ./.linky-demo --mock
-npm run linky -- preview --day examples/synthetic/day-plan.json --data-dir ./.linky-demo --mock
-npm run linky -- apply --preview "$HOME/.linky/last-preview.json" --approve --by "tu-nombre" --snapshot <hash> --data-dir ./.linky-demo --mock
-npm run linky -- reconcile --key "<clientKey>" --data-dir ./.linky-demo --mock
-npm run linky -- drafts --day examples/synthetic/day-plan.json --data-dir ./.linky-demo
+npm run linky -- plan --day examples/synthetic/day-plan.json --data-dir "$HOME/.linky-demo" --mock
+npm run linky -- preview --day examples/synthetic/day-plan.json --data-dir "$HOME/.linky-demo" --mock
+npm run linky -- apply --preview "$HOME/.linky/last-preview.json" --approve --by "tu-nombre" --snapshot <hash> --data-dir "$HOME/.linky-demo" --mock
+npm run linky -- reconcile --key "<clientKey>" --data-dir "$HOME/.linky-demo" --mock
+npm run linky -- drafts --day examples/synthetic/day-plan.json --data-dir "$HOME/.linky-demo"
 ```
 
 Reglas:
@@ -114,3 +114,39 @@ Todo con **mocks**. No hay E2E Azure real en CI.
 ## Licencia / uso
 
 Clonar ≠ acceso Azure. No publiques datos privados de tu organización en forks ni PRs.
+
+
+## Ripor (horas)
+
+URL pública: https://ripor.co/u/horas
+
+Skill: `skills/linky-ripor/`. Núcleo: `agent/lib/ripor/`. Puente UI: `agent/lib/browser/` (mock / unimplemented; Playwright lo inyecta el host).
+
+```bash
+npm run linky -- ripor setup --answers examples/synthetic/ripor-setup.json --mock --data-dir "$HOME/.linky-demo"
+npm run linky -- ripor preview --draft examples/synthetic/ripor-draft.json --mock --data-dir "$HOME/.linky-demo"
+npm run demo:ripor
+npm run scan
+```
+
+Solo UI; sin cookies/API internas. Perfil navegador fuera del repo. `--data-dir` debe quedar **fuera** del repo (rechazado si apunta dentro). No push de reportes reales desde CI de build.
+
+
+## Navegador portable (MCP local, no plugin exclusivo)
+
+```sh
+npm run linky -- browser setup
+npm run linky -- browser status
+```
+
+Genera configs privadas sin instalar ni abrir navegador, sin cambiar el cliente actual.
+Ver [instalación y límites reales](docs/BROWSER-MCP.md). Adaptador MCP público implementa
+navegación/snapshot/opciones; parser y mutaciones live rechazan explícitamente por falta
+de validación. `ripor check/gate` valida observaciones UI reales sin usar mocks ni hacer clicks.
+Azure usa REST WIT oficial con PAT; no navegador Azure. Ripor solo navegador.
+
+
+Ciclo manual IA UI crear/editar/borrar/reabrir verificado; NO equivale a adapter automático
+de mutaciones implementado ni a selectores Playwright estables. **Continuar guarda
+directamente en crear y editar**. Borrar pide confirmación; aprobación antes de confirmar.
+Solo SINGLE URL de evidencia validada; headless cross-restart no probado.

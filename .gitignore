@@ -17,3 +17,11 @@ dist
 *.key
 coverage
 linky-dist.zip
+
+browser-profiles/
+**/browser-profiles/
+.linky-demo/
+
+/workspace/private-ripor/
+private-ripor/
+**/private-ripor/
