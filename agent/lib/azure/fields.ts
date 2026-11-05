@@ -42,12 +42,61 @@ export function pickWritableFields(meta: ProcessMeta, desired: Record<string, un
       skipped.push(`${key} (solo lectura)`);
       continue;
     }
+    if (field.allowedValues?.length && !field.allowedValues.includes(String(value))) {
+      skipped.push(`${key}="${String(value)}" (no es un valor permitido: ${field.allowedValues.join(" / ")})`);
+      continue;
+    }
     applied[key] = value;
   }
+  // Azure completa solo: campos con default del proceso, e Iteración/Área desde su ruta (o la raíz del proyecto).
+  const satisfiedBySystem = (ref: string) =>
+    (ref === "System.IterationId" && applied["System.IterationPath"] !== undefined) ||
+    (ref === "System.AreaId" && applied["System.AreaPath"] !== undefined);
   const missingRequired = meta.fields
-    .filter((f) => f.required && !f.readOnly && applied[f.referenceName] === undefined)
+    .filter(
+      (f) =>
+        f.required &&
+        !f.readOnly &&
+        applied[f.referenceName] === undefined &&
+        f.defaultValue == null &&
+        !satisfiedBySystem(f.referenceName),
+    )
     .map((f) => f.referenceName);
   return { applied, skipped, missingRequired };
+}
+
+/**
+ * Para campos obligatorios sin valor, toma el más usado entre las Tasks hermanas (mismo padre).
+ * Así se respetan convenciones del equipo (p. ej. Activity / SubActividad) sin inventar valores.
+ */
+export async function inferFromSiblings(
+  client: AzureClient,
+  siblingIds: number[],
+  fields: string[],
+  max = 10,
+): Promise<Record<string, unknown>> {
+  const counts = new Map<string, Map<string, { value: unknown; n: number }>>();
+  for (const id of [...siblingIds].sort((a, b) => b - a).slice(0, max)) {
+    let wi;
+    try {
+      wi = await client.getWorkItem(id);
+    } catch {
+      continue;
+    }
+    for (const ref of fields) {
+      const v = wi.fields[ref];
+      if (v === undefined || v === null || v === "") continue;
+      const byValue = counts.get(ref) ?? new Map();
+      const k = JSON.stringify(v);
+      byValue.set(k, { value: v, n: (byValue.get(k)?.n ?? 0) + 1 });
+      counts.set(ref, byValue);
+    }
+  }
+  const out: Record<string, unknown> = {};
+  for (const [ref, byValue] of counts) {
+    out[ref] = [...byValue.values()].sort((a, b) => b.n - a.n)[0].value;
+  }
+  return out;
 }
 
 export function fieldsToJsonPatch(fields: Record<string, unknown>): Array<{ op: string; path: string; value: unknown }> {

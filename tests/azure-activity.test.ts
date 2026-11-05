@@ -146,3 +146,33 @@ describe("descripción breve Ripor", () => {
     expect(evaluateRiporPolicy({ ...base, profile: { ...profile, descriptionMaxChars: 100 }, draft: draft("y".repeat(120)) }).ok).toBe(false);
   });
 });
+
+describe("campos obligatorios al crear Task", async () => {
+  const { inferFromSiblings, pickWritableFields } = await import("../agent/lib/azure/fields.js");
+  const meta = {
+    workItemType: "Task",
+    states: [],
+    transitions: [],
+    fields: [
+      { referenceName: "System.Title", name: "Title", type: "string", required: true, readOnly: false },
+      { referenceName: "System.IterationId", name: "Iteration ID", type: "integer", required: true, readOnly: false },
+      { referenceName: "System.IterationPath", name: "Iteration Path", type: "treePath", required: false, readOnly: false },
+      { referenceName: "System.State", name: "State", type: "string", required: true, readOnly: false, defaultValue: "Nuevo" },
+      { referenceName: "Custom.Sub", name: "Sub", type: "string", required: true, readOnly: false, allowedValues: ["N/A", "QA"] },
+    ],
+  };
+
+  it("default del proceso e Iteración por ruta no bloquean; valor no permitido sí", () => {
+    const ok = pickWritableFields(meta, { "System.Title": "t", "System.IterationPath": "P\S1", "Custom.Sub": "N/A" });
+    expect(ok.missingRequired).toEqual([]);
+    const bad = pickWritableFields(meta, { "System.Title": "t", "System.IterationPath": "P\S1", "Custom.Sub": "Inventado" });
+    expect(bad.missingRequired).toEqual(["Custom.Sub"]);
+    expect(bad.skipped.join(" ")).toMatch(/no es un valor permitido/);
+  });
+
+  it("infiere el valor más usado entre Tasks hermanas", async () => {
+    const values: Record<number, string> = { 10: "N/A", 11: "N/A", 12: "QA" };
+    const client = { getWorkItem: async (id: number) => ({ id, rev: 1, fields: { "Custom.Sub": values[id] } }) } as never;
+    expect(await inferFromSiblings(client, [10, 11, 12], ["Custom.Sub"])).toEqual({ "Custom.Sub": "N/A" });
+  });
+});

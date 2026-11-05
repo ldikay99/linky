@@ -124,7 +124,7 @@ export function createHttpAzureClient(auth: AzureAuth, fetchImpl: typeof fetch =
 
     async getWorkItemTypeFields(typeName) {
       const t = encodeURIComponent(typeName);
-      const res = await api(`/${project}/_apis/wit/workitemtypes/${t}/fields?api-version=7.1`);
+      const res = await api(`/${project}/_apis/wit/workitemtypes/${t}/fields?$expand=allowedValues&api-version=7.1`);
       if (!res.ok) throw new Error(`fields HTTP ${res.status}`);
       const data = (await res.json()) as { value: Array<Record<string, unknown>> };
       return (data.value || []).map((f) => ({
@@ -133,7 +133,8 @@ export function createHttpAzureClient(auth: AzureAuth, fetchImpl: typeof fetch =
         type: String(f.type || "string"),
         required: Boolean(f.alwaysRequired),
         readOnly: Boolean(f.readOnly),
-        allowedValues: Array.isArray(f.allowedValues) ? f.allowedValues.map(String) : undefined,
+        allowedValues: Array.isArray(f.allowedValues) && f.allowedValues.length ? f.allowedValues.map(String) : undefined,
+        defaultValue: f.defaultValue ?? undefined,
       }));
     },
 

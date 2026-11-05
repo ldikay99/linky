@@ -1,6 +1,7 @@
 import type { AzureClient } from "../azure/client.js";
 import { linkyClientKeyMarker, prepareLocalImageAttachment } from "../azure/attachments.js";
-import { pickWritableFields } from "../azure/fields.js";
+import { inferFromSiblings, pickWritableFields } from "../azure/fields.js";
+import type { WorkItem } from "../azure/client.js";
 import { canTransition, resolveTargetState, type DeliveryIntent } from "../azure/states.js";
 import type { ApplyPreview, DayPlan, LinkyProfile, PlannedChange, AttachmentPlan } from "../types.js";
 import { buildClientKey, hashPreviewSnapshot } from "./idempotency.js";
@@ -183,9 +184,10 @@ export async function previewDayChanges(
       }
 
       // Verificar padre existe (lectura) si hay client
+      let parent: WorkItem | undefined;
       if (act.parentHuId != null) {
         try {
-          const parent = await client.getWorkItem(act.parentHuId);
+          parent = await client.getWorkItem(act.parentHuId);
           const parentProject = String(parent.fields["System.TeamProject"] ?? profile.azure.project);
           if (parentProject && parentProject !== profile.azure.project) {
             summary.push(`Padre HU ${act.parentHuId} no está en el proyecto ${profile.azure.project}.`);
@@ -203,12 +205,42 @@ export async function previewDayChanges(
         profile.workContext.titleConvention && act.kind === "planned"
           ? act.title
           : act.title;
-      const desired = {
+      // Iteración/Área de la HU padre; defaults del perfil; valores explícitos de la actividad.
+      const inherited: Record<string, unknown> = {};
+      for (const ref of ["System.IterationPath", "System.AreaPath"]) {
+        if (parent?.fields[ref] !== undefined) inherited[ref] = parent.fields[ref];
+      }
+      const desired: Record<string, unknown> = {
+        ...inherited,
+        ...(profile.azure.taskFieldDefaults ?? {}),
         ...baseDesired,
+        ...(act.fields ?? {}),
         "System.Title": title,
         "System.Description": descriptionHtml,
       };
-      const picked = pickWritableFields(meta, desired);
+      let picked = pickWritableFields(meta, desired);
+      const estimateRef = "Microsoft.VSTS.Scheduling.OriginalEstimate";
+      if (picked.missingRequired.includes(estimateRef) && act.kind === "done" && hoursActual != null) {
+        desired[estimateRef] = Number(hoursActual.toFixed(2));
+        summary.push(`"${act.title}": OriginalEstimate obligatorio y sin estimación previa → se usa la hora real (${desired[estimateRef]} h).`);
+        picked = pickWritableFields(meta, desired);
+      }
+      if (picked.missingRequired.length && parent) {
+        const siblings = (parent.relations ?? [])
+          .filter((r) => r.rel === "System.LinkTypes.Hierarchy-Forward")
+          .map((r) => Number(r.url.split("/").pop()))
+          .filter(Number.isInteger);
+        const inferred = await inferFromSiblings(client, siblings, picked.missingRequired);
+        if (Object.keys(inferred).length) {
+          Object.assign(desired, inferred);
+          summary.push(
+            `"${act.title}": campos tomados de Tasks hermanas de la HU ${act.parentHuId}: ${Object.entries(inferred)
+              .map(([k, v]) => `${k}=${String(v)}`)
+              .join(", ")}`,
+          );
+          picked = pickWritableFields(meta, desired);
+        }
+      }
       for (const s of picked.skipped) summary.push(`Omitido al crear "${act.title}": ${s}`);
       if (picked.missingRequired.length) {
         summary.push(`Faltan campos requeridos para crear "${act.title}": ${picked.missingRequired.join(", ")}`);

@@ -91,6 +91,11 @@ export type AzureConnectionProfile = {
   identityDisplayName?: string;
   identityEmail?: string;
   defaultTags: string[];
+  /**
+   * Valores por defecto para campos obligatorios del proceso al crear Tasks
+   * (p. ej. Microsoft.VSTS.Common.Activity, Custom.SubActividad). Si faltan, se infieren de Tasks hermanas.
+   */
+  taskFieldDefaults?: Record<string, unknown>;
 };
 
 export type PermissionProbeResult = {
@@ -108,6 +113,8 @@ export type FieldMeta = {
   required: boolean;
   readOnly: boolean;
   allowedValues?: string[];
+  /** Valor por defecto del proceso (Azure lo asigna si no se envía). */
+  defaultValue?: unknown;
 };
 
 export type StateMeta = {
@@ -175,6 +182,8 @@ export type DayActivity = {
   meetingOrCallLinks: string[];
   notes?: string;
   expectedRev?: number;
+  /** Valores explícitos de campos del proceso para esta actividad (ganan sobre defaults e inferencia). */
+  fields?: Record<string, unknown>;
   /** Ventana HH:mm–HH:mm dentro de la jornada (opcional para cobertura). */
   timeRange?: { start: string; end: string };
 };
