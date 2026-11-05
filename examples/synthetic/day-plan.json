@@ -1,0 +1,29 @@
+{
+  "date": "2026-11-05",
+  "activities": [
+    {
+      "id": "act-1",
+      "kind": "done",
+      "title": "Ajustar export de reporte (sintético)",
+      "shortDescription": "Corregí el mapeo de columnas del export y validé el PDF de prueba.",
+      "workItemId": 900001,
+      "parentHuId": 800001,
+      "workItemType": "Task",
+      "minutesSpent": 90,
+      "evidenceLinks": ["https://example.com/repo/commit/abc123synthetic"],
+      "meetingOrCallLinks": ["https://example.com/meetings/synthetic-call"],
+      "evidenceImages": []
+    },
+    {
+      "id": "act-2",
+      "kind": "planned",
+      "title": "Preparar handoff de módulo demo",
+      "shortDescription": "Documentaré el flujo y dejaré checklist de QA para mañana.",
+      "parentHuId": 800001,
+      "workItemType": "Task",
+      "evidenceLinks": [],
+      "meetingOrCallLinks": [],
+      "evidenceImages": []
+    }
+  ]
+}

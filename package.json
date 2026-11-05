@@ -1,0 +1,42 @@
+{
+  "name": "linky",
+  "version": "0.2.0",
+  "type": "module",
+  "imports": {
+    "#*": "./agent/*",
+    "#evals/*": "./evals/*"
+  },
+  "scripts": {
+    "build": "eve build",
+    "deploy": "eve deploy",
+    "dev": "eve dev",
+    "eval": "eve eval",
+    "start": "eve start",
+    "typecheck": "tsc",
+    "linky": "tsx agent/lib/cli/main.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "demo:mock": "tsx scripts/demo-mock.ts"
+  },
+  "dependencies": {
+    "@napi-rs/keyring": "^2.1.2",
+    "@vercel/connect": "2.7.0",
+    "ai": "^7.0.137",
+    "eve": "^1.0.0-rc.5",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "tsx": "^4.23.15",
+    "typescript": "7.0.2",
+    "vitest": "^5.1.0"
+  },
+  "engines": {
+    "node": "24.x"
+  },
+  "description": "Linky: CLI + skill agn\u00f3stica para onboarding y registro diario en Azure Boards (secretos fuera del repo)",
+  "bin": {
+    "linky": "./agent/lib/cli/main.ts"
+  },
+  "author": "Jonathan Contreras"
+}

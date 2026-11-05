@@ -1,0 +1,43 @@
+{
+  "organizationUrl": "https://dev.azure.com/ExampleOrg",
+  "project": "Example Project",
+  "team": "Example Team",
+  "identityDisplayName": "Persona Demo",
+  "identityEmail": "demo@example.com",
+  "pat": "synthetic-pat-not-real-0000",
+  "defaultTags": [
+    "DEMO TAG"
+  ],
+  "huCreation": "scrum_or_third_party_only",
+  "taskDelivery": "same_user",
+  "taskClose": "ask_each_time",
+  "huClose": "scrum_or_third_party",
+  "mondayToThursday": {
+    "start": "08:30",
+    "end": "18:00"
+  },
+  "friday": {
+    "start": "08:00",
+    "end": "17:00"
+  },
+  "lunchMinutes": 60,
+  "holidays": [],
+  "absences": [],
+  "patCreatedOn": "2026-10-01",
+  "patExpiresOn": "2027-01-01",
+  "deviceTimeZone": "America/Bogota",
+  "confirmDeviceTimeZone": true,
+  "scopeChoice": "work_items_rw",
+  "localOsReminderOptIn": false,
+  "occupation": "Ingeniero de datos",
+  "projectContext": "Plataforma sint\u00e9tica de reportes y calidad de datos",
+  "assignedDisplayName": "Persona Demo",
+  "responsibleTag": "RESPONSABLE-DEMO",
+  "responsibleMention": "@responsable.demo",
+  "huRefine": "scrum_or_third_party_only",
+  "lunchStart": "12:00",
+  "lunchEnd": "13:00",
+  "confirmScheduleInterpretation": true,
+  "ambiguousScheduleText": "lunes a viernes 8:30\u201318 y viernes 8\u201317",
+  "planningMarginPercent": 10
+}
