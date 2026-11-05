@@ -9,6 +9,7 @@ import type { RiporCoverageProof, RiporDraftFields, RiporProfile } from "../agen
 import { linkyDataDir, detectLinkyRepoRoot, isPathInside } from "../agent/lib/security/paths.js";
 import path from "node:path";
 import { tmpdir } from "node:os";
+import { realpathSync } from "node:fs";
 
 function proof(hours = 8.5): RiporCoverageProof {
   return {
@@ -341,7 +342,8 @@ describe("data-dir canonical outside repo", () => {
   });
 
   it("allows tmp outside repo", () => {
-    const dir = path.join(tmpdir(), "linky-data-canonical-test");
+    // Ruta real: en macOS /var es enlace a /private/var y linkyDataDir canoniza.
+    const dir = path.join(realpathSync.native(tmpdir()), "linky-data-canonical-test");
     const repo = detectLinkyRepoRoot(process.cwd());
     expect(repo && isPathInside(dir, repo)).toBe(false);
     expect(linkyDataDir(dir)).toBe(path.resolve(dir));
