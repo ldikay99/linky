@@ -6,8 +6,39 @@ import { attachmentRelationPatch } from "./attachments.js";
 export type AzureAuth = {
   organizationUrl: string;
   project: string;
-  pat: string;
+  /** PAT (preferido). */
+  pat?: string;
+  /** Alternativa: header Cookie de la sesión web (azure login). Nunca se persiste fuera del keyring. */
+  cookie?: string;
 };
+
+export class AzureSessionExpiredError extends Error {
+  constructor(detail: string) {
+    super(`AZURE_AUTH_INVALID: ${detail}. Revisa el PAT o inicia sesión de nuevo: npm run linky -- azure login`);
+    this.name = "AzureSessionExpiredError";
+  }
+}
+
+/** Headers de autenticación: PAT (Basic) o cookie de sesión web sin redirección a login. */
+export function azureAuthHeaders(auth: Pick<AzureAuth, "pat" | "cookie">): Record<string, string> {
+  if (auth.pat) return { Authorization: `Basic ${Buffer.from(`:${auth.pat}`).toString("base64")}` };
+  if (auth.cookie) {
+    return {
+      cookie: auth.cookie,
+      "X-TFS-FedAuthRedirect": "Suppress",
+      "X-VSS-ReauthenticationAction": "Suppress",
+    };
+  }
+  throw new Error("Azure: falta PAT o sesión web (azure login).");
+}
+
+/** Sin auth válida Azure responde 203/HTML de login o 401/302. */
+export function assertAzureAuthenticated(res: Response): void {
+  const ct = res.headers.get("content-type") ?? "";
+  if (res.status === 401 || (res.status >= 300 && res.status < 400) || (res.status === 203 && /html/i.test(ct))) {
+    throw new AzureSessionExpiredError(`HTTP ${res.status}`);
+  }
+}
 
 export type WorkItem = {
   id: number;
@@ -37,20 +68,16 @@ export type AzureClient = {
   queryByClientKeyMarker(clientKey: string): Promise<number[]>;
 };
 
-function basicAuth(pat: string): string {
-  return Buffer.from(`:${pat}`).toString("base64");
-}
-
 export function createHttpAzureClient(auth: AzureAuth, fetchImpl: typeof fetch = fetch): AzureClient {
   const validated = validateOrganizationUrl(auth.organizationUrl);
   const base = validated.organizationUrl;
   const project = encodeURIComponent(auth.project);
-  const authHeader = `Basic ${basicAuth(auth.pat)}`;
+  const authHeaders = azureAuthHeaders(auth);
 
   async function api(path: string, init?: RequestInit & { rawBody?: Uint8Array | string; contentType?: string }): Promise<Response> {
     const url = `${base}${path}`;
     const headers: Record<string, string> = {
-      Authorization: authHeader,
+      ...authHeaders,
       Accept: "application/json",
       ...(init?.headers as Record<string, string> | undefined),
     };
@@ -69,6 +96,7 @@ export function createHttpAzureClient(auth: AzureAuth, fetchImpl: typeof fetch =
       redirect: SAFE_FETCH_REDIRECT,
       signal: init?.signal,
     });
+    if (!auth.pat) assertAzureAuthenticated(res);
     return res;
   }
 

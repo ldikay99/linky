@@ -1,0 +1,148 @@
+import { describe, expect, it } from "vitest";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { readDayActivity } from "../agent/lib/azure/activity.js";
+import { assertAzureAuthenticated, azureAuthHeaders } from "../agent/lib/azure/client.js";
+import { loadAzureOrgs, readOrgPat, registerAzureOrg, saveOrgPat, setPrimaryAzureOrg } from "../agent/lib/azure/orgs.js";
+import { evaluateRiporPolicy } from "../agent/lib/ripor/policy.js";
+import { buildRiporProfileFromSetup } from "../agent/lib/ripor/setup.js";
+import { createFakeSecretStore } from "../agent/lib/security/secretStore.js";
+
+const ORG = "https://dev.azure.com/ExampleOrg";
+const ME = "user-me";
+
+/** Azure DevOps falso: connectionData, WIQL, workitemsbatch y updates. */
+function fakeAzure() {
+  const calls: string[] = [];
+  const fetchImpl = (async (input: string | URL, init?: RequestInit) => {
+    const url = new URL(String(input));
+    calls.push(`${init?.method ?? "GET"} ${url.pathname}`);
+    const headers = new Headers(init?.headers);
+    if (!headers.get("authorization") && !headers.get("cookie")) {
+      return new Response("<html>login</html>", { status: 203, headers: { "content-type": "text/html" } });
+    }
+    const json = (b: unknown) => new Response(JSON.stringify(b), { headers: { "content-type": "application/json" } });
+    if (url.pathname.endsWith("/_apis/connectionData")) {
+      return json({ authenticatedUser: { id: ME, providerDisplayName: "Persona Demo" } });
+    }
+    if (url.pathname.endsWith("/_apis/wit/wiql")) return json({ workItems: [{ id: 1 }, { id: 2 }] });
+    if (url.pathname.endsWith("/_apis/wit/workitemsbatch")) {
+      return json({
+        value: [
+          { id: 1, fields: { "System.Title": "Tarea demo A", "System.WorkItemType": "Task", "System.State": "3. Entregado", "System.TeamProject": "Proyecto Demo" } },
+          { id: 2, fields: { "System.Title": "Tarea de otro día", "System.WorkItemType": "Task", "System.State": "Active", "System.TeamProject": "Proyecto Demo" } },
+        ],
+      });
+    }
+    const m = /workItems\/(\d+)\/updates/.exec(url.pathname);
+    if (m && m[1] === "1") {
+      return json({
+        value: [
+          { id: 1, rev: 1, revisedBy: { id: ME }, fields: { "System.ChangedDate": { newValue: "2026-11-04T14:00:00Z" }, "System.State": { newValue: "1. En Planeacion" } } },
+          {
+            id: 2,
+            rev: 2,
+            revisedBy: { id: ME },
+            fields: {
+              "System.ChangedDate": { newValue: "2026-11-04T20:00:00Z" },
+              "System.State": { oldValue: "1. En Planeacion", newValue: "3. Entregado" },
+              "Microsoft.VSTS.Scheduling.CompletedWork": { oldValue: 1, newValue: 3.5 },
+              "System.History": { newValue: "<div>Listo&nbsp;en UAT</div>" },
+            },
+          },
+          // De otra persona: no cuenta.
+          { id: 3, rev: 3, revisedBy: { id: "otra" }, fields: { "System.ChangedDate": { newValue: "2026-11-04T21:00:00Z" } } },
+        ],
+      });
+    }
+    if (m && m[1] === "2") {
+      // Cambio a las 02:00Z del 05 = 21:00 del 04 en Bogotá → sí cuenta en zona local.
+      return json({ value: [{ id: 1, rev: 5, revisedBy: { id: ME }, fields: { "System.ChangedDate": { newValue: "2026-11-05T02:00:00Z" } } }] });
+    }
+    return new Response("not found", { status: 404 });
+  }) as typeof fetch;
+  return { fetchImpl, calls };
+}
+
+describe("azure activity del día", () => {
+  it("solo cuenta cambios propios en la fecha local; suma horas y limpia comentarios", async () => {
+    const { fetchImpl } = fakeAzure();
+    const r = await readDayActivity({ organizationUrl: ORG, auth: { pat: "synthetic-pat-x" }, dateYmd: "2026-11-04", timeZone: "America/Bogota", fetchImpl });
+    expect(r.user).toBe("Persona Demo");
+    expect(r.items.map((i) => i.id)).toEqual([1, 2]);
+    const a = r.items[0];
+    expect(a.createdToday).toBe(true);
+    expect(a.stateChanges).toEqual(["∅ → 1. En Planeacion", "1. En Planeacion → 3. Entregado"]);
+    expect(a.completedWorkDelta).toBe(2.5);
+    expect(a.comments).toEqual(["Listo en UAT"]);
+    expect(a.url).toBe(`${ORG}/Proyecto%20Demo/_workitems/edit/1`);
+    expect(r.completedWorkHours).toBe(2.5);
+  });
+
+  it("en UTC el cambio de las 02:00Z cae en otro día", async () => {
+    const { fetchImpl } = fakeAzure();
+    const r = await readDayActivity({ organizationUrl: ORG, auth: { pat: "synthetic-pat-x" }, dateYmd: "2026-11-04", timeZone: "UTC", fetchImpl });
+    expect(r.items.map((i) => i.id)).toEqual([1]);
+  });
+
+  it("sin auth válida Azure responde 203/HTML → error claro", () => {
+    const res = new Response("<html/>", { status: 203, headers: { "content-type": "text/html" } });
+    expect(() => assertAzureAuthenticated(res)).toThrow(/AZURE_AUTH_INVALID/);
+    expect(azureAuthHeaders({ cookie: "a=b" })["X-TFS-FedAuthRedirect"]).toBe("Suppress");
+    expect(() => azureAuthHeaders({})).toThrow();
+  });
+});
+
+describe("varias organizaciones", () => {
+  it("registra principal + secundaria con PAT propio cada una, sin secretos en el registro", async () => {
+    const dataDir = await mkdtemp(path.join(tmpdir(), "linky-orgs-"));
+    const store = createFakeSecretStore();
+    await saveOrgPat(store, "https://dev.azure.com/EmpresaA", "synthetic-pat-a");
+    await saveOrgPat(store, "https://dev.azure.com/ClienteB", "synthetic-pat-b");
+    await registerAzureOrg({ organizationUrl: "https://dev.azure.com/EmpresaA", auth: "pat" }, { primary: true, dataDir });
+    await registerAzureOrg({ organizationUrl: "https://dev.azure.com/ClienteB", auth: "pat" }, { dataDir });
+    let reg = await loadAzureOrgs(dataDir);
+    expect(reg.primary).toBe("https://dev.azure.com/EmpresaA");
+    expect(reg.orgs).toHaveLength(2);
+    expect(JSON.stringify(reg)).not.toContain("synthetic-pat");
+    expect(await readOrgPat(store, "https://dev.azure.com/clienteb")).toBe("synthetic-pat-b");
+    reg = await setPrimaryAzureOrg("https://dev.azure.com/ClienteB", dataDir);
+    expect(reg.primary).toBe("https://dev.azure.com/ClienteB");
+    await expect(setPrimaryAzureOrg("https://dev.azure.com/NoExiste", dataDir)).rejects.toThrow(/no registrada/);
+  });
+});
+
+describe("descripción breve Ripor", () => {
+  const profile = buildRiporProfileFromSetup({
+    uiObserved: true,
+    uiAreaProjects: [{ label: "Área", verifiedFromUi: true }],
+    chosenAreaProjectLabel: "Área",
+    uiTransportOptions: [{ label: "🏠 Trabajo Remoto", formValue: "trabajo_remoto", verifiedFromUi: true }],
+    chosenTransportLabel: "🏠 Trabajo Remoto",
+  }).profile!;
+  const base = {
+    op: "create" as const,
+    dateYmd: "2026-11-04",
+    existingSameDay: [],
+    profile,
+    coverageProof: { sustainedActivityHours: 8.5, coversDraftDedication: true as const, source: "azure_confirmed" as const },
+  };
+  const draft = (description: string) => ({
+    dateYmd: "2026-11-04",
+    areaProjectLabel: "Área",
+    taskLabel: "Tarea Personalizada",
+    hours: 8.5,
+    description,
+    evidenceUrls: ["https://example.com/e"],
+    transportLabel: "🏠 Trabajo Remoto",
+    transportIsDailyOverride: false,
+  });
+
+  it("exige mínimo 50 (regla del formulario Ripor) y máximo breve (500 por defecto)", () => {
+    expect(evaluateRiporPolicy({ ...base, draft: draft("Muy corta.") }).blockers.join(" ")).toMatch(/mínimo 50/);
+    expect(evaluateRiporPolicy({ ...base, draft: draft("x".repeat(501)) }).blockers.join(" ")).toMatch(/no es breve/);
+    expect(evaluateRiporPolicy({ ...base, draft: draft("y".repeat(120)) }).ok).toBe(true);
+    expect(evaluateRiporPolicy({ ...base, profile: { ...profile, descriptionMaxChars: 100 }, draft: draft("y".repeat(120)) }).ok).toBe(false);
+  });
+});

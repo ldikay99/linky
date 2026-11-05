@@ -116,7 +116,7 @@ describe("public MCP UI adapter (unit simulations, not live)", () => {
       adapter, profile: emptyRiporProfile(), op: "create", dateYmd: "2026-11-05",
       draft: {
         dateYmd: "2026-11-05", areaProjectLabel: "Synthetic Area", taskLabel: "Tarea Personalizada",
-        hours: 8.5, description: "Synthetic confirmed work", evidenceUrls: ["https://example.com/work"],
+        hours: 8.5, description: "Synthetic confirmed work on Azure tasks for this day.", evidenceUrls: ["https://example.com/work"],
         transportLabel: "🏠 Trabajo Remoto", transportIsDailyOverride: false,
       },
       coverageProof: { sustainedActivityHours: 8.5, source: "azure_confirmed", coversDraftDedication: true },
@@ -144,7 +144,7 @@ describe("real-observation deterministic gates (no mock or browser needed)", () 
       op: "update", dateYmd: "2026-11-05", reportId: "synthetic-row",
       draft: {
         dateYmd: "2026-11-05", areaProjectLabel: "Synthetic Area", taskLabel: "Tarea Personalizada",
-        hours: 8.5, description: "Synthetic confirmed activities", evidenceUrls: ["https://example.com/work"],
+        hours: 8.5, description: "Synthetic confirmed activities on Azure tasks for this day.", evidenceUrls: ["https://example.com/work"],
         transportLabel: "🏠 Trabajo Remoto", transportIsDailyOverride: false,
       },
       coverageProof: { sustainedActivityHours: 8.5, coversDraftDedication: true, source: "azure_confirmed" },

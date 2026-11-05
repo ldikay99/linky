@@ -95,6 +95,8 @@ export function buildRiporProfileFromSetup(input: RiporSetupInput): RiporSetupRe
     schedule,
     defaultTransport: transport!,
     azureProjectHints: input.azureProjectHints ?? [],
+    taskOptions: input.uiTaskOptions,
+    transportOptions: input.uiTransportOptions,
     setupComplete: true,
     notes: [
       "Proyecto Ripor (área) ≠ proyectos Azure.",

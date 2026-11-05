@@ -2,7 +2,7 @@
 
 ## Lo que se entrega (y lo que no)
 
-Linky no es un servicio cloud/chat, ni exporta el plugin de Grok Bot. Cualquier IA con
+Linky no es un servicio cloud/chat ni exporta plugins de ningún asistente. Cualquier IA con
 acceso a un **cliente MCP local stdio**, las herramientas autorizadas y la skill puede
 instalar esta configuración en **el dispositivo de la persona**. Un chatbot sin MCP ni
 herramientas locales no puede usarla directamente. El esquema exterior del cliente varía.
@@ -39,9 +39,9 @@ del bot actual. Los outputs automáticos quedan fuera del repo, en `browser-outp
 ## Qué instala/ejecuta la persona (no ejecutado por este build)
 
 1. Revisar e importar MANUALMENTE la configuración apropiada en el cliente local.
-   Cursor, Claude Desktop, Cline y otros admiten `mcpServers`; VS Code usa `servers`.
-   Clientes TOML (p.ej. Codex/Grok CLI) requieren adaptar el server `command/args` a su
-   esquema oficial. No asumir que el plugin de Grok Bot comparte ese esquema.
+   La mayoría de clientes MCP de escritorio/IDE admiten `mcpServers`; VS Code usa `servers`.
+   Clientes con configuración TOML requieren adaptar el server `command/args` a su
+   esquema oficial. No asumir que un plugin propietario comparte ese esquema.
 2. Al habilitar el servidor se ejecuta `npx -y @playwright/mcp@latest --config <ruta>`.
    Esto descarga/ejecuta el paquete npm. **latest cambia**: revisar y fijar una versión
    tras validarla. No hay dependencia Playwright ni SDK añadida a `package.json` de Linky.

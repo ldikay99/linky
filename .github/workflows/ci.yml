@@ -5,7 +5,14 @@ on:
   pull_request:
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      # CI sin keyring de escritorio: secretos solo en memoria.
+      LINKY_SECRET_BACKEND: session
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -15,6 +22,8 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      - run: npm run scan
       - run: npm run demo:mock
         env:
           LINKY_AZURE_MODE: mock
+      - run: npm run demo:ripor

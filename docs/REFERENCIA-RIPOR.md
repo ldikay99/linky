@@ -1,13 +1,37 @@
-# Referencia Ripor (UI pública)
+# Referencia Ripor
 
 **URL oficial:** https://ripor.co/u/horas
 
-## Principios
+## Modos
 
-- Solo automatización de **UI** (fill/click en formularios públicos).
-- Prohibido documentar o llamar endpoints internos, inspeccionar red, o reutilizar cookies/tokens de capturas/curls.
-- Perfil de navegador: `~/.linky/browser-profiles/ripor` (fuera del repo).
-- Gmail/Calendar: fuera de alcance por ahora.
+| Modo | Cuándo | Navegador |
+|------|--------|-----------|
+| **HTTP** (por defecto) | Registrar, editar, borrar, listar | Solo `ripor login` |
+| UI guiada (`ripor check/gate`, `docs/BROWSER-MCP.md`) | Alternativa manual | Sí |
+| `--mock` | Pruebas offline | No |
+
+## Peticiones (las mismas que hace la web, SvelteKit)
+
+| Acción | Petición | Campos clave |
+|--------|----------|--------------|
+| Leer día | `GET /u/horas/getReport?date=YYYY-MM-DD` | — |
+| Catálogo/página | `GET /u/horas/__data.json` (formato devalue) | proyectos, tareas, `reports` del mes, `totalhoursPerUser` |
+| Crear | `POST /u/horas?/create` (`x-sveltekit-action: true`) | `notes`, `date`, `project_id`, `code`, `hours`, `analytic_account_id`, `reports=[]`, `currentMonth`, `totalhours`, `report_task_id`, `evidencia`, `medio_transporte` |
+| Editar | `POST /u/horas?/update` | `id`, `date`, `hours`, `code`, `notes`, `report` (objeto original), `reportDate`, `reports`, `report_task_id`, `evidencia`, `medio_transporte`, … |
+| Borrar | `POST /u/horas?/delete` | `id`, `personal_id` (user_id del reporte) |
+
+Respuesta de acciones: `{ type: "success" | "failure" | "redirect" | "error", data }`. Redirect a login / 3xx / HTML = sesión vencida.
+
+`project_id`, `analytic_account_id` y `code` son **distintos** entre sí; se obtienen de un reporte real
+(`ripor catalog --from-date`) o del catálogo de la página. Nunca de ejemplos.
+
+## Sesión
+
+- `ripor login`: Chrome/Edge instalado, contexto efímero (sin perfil en disco). Al detectar la sesión, las cookies de auth van al keyring y se cierra.
+- `ripor login --paste`: pegar (oculto) el valor del header `cookie` de una petición a ripor.co.
+- El servidor refresca tokens con `Set-Cookie`; Linky los guarda de nuevo en el keyring.
+- `ripor session --check` valida; `ripor logout` borra del almacén local.
+- **Nunca** copiar cookies/curls a repo, fixtures, issues, chat o logs.
 
 ## Dedicación
 
@@ -16,51 +40,18 @@
 | Lun–Jue | 8.5 | 08:30–18:00 + pausa comida |
 | Viernes | 8 | 08:00–17:00 + pausa comida |
 
-Fecha = calendario **local del dispositivo**. El campo UI es dedicación **numérica**.
+Fecha = calendario **local del dispositivo**; fechas futuras bloqueadas; fin de semana bloqueado.
+Máximo incluye la suma de todos los reportes del día. Menos horas solo con petición explícita fecha + cantidad.
 
-## Proyecto área vs Azure
+## Transporte
 
-El proyecto que pide Ripor es el **de área / analítico de la persona**. Los proyectos Azure (uno o varios) sirven para armar descripción y evidencias, no sustituyen la elección UI de área.
+Valor de formulario verificado: `trabajo_remoto` (🏠 Trabajo Remoto). Los demás (`vehiculo_particular`,
+`moto_particular`, `transporte_publico`, `carro_compartido`, `bicicleta`, `patineta_electrica`,
+`apps_movilidad`) son **supuestos** y quedan bloqueados hasta verlos en un reporte real:
+registra uno en la web con ese medio y ejecuta `ripor catalog --from-date <fecha>` + `ripor setup`.
 
-## Adapter
+## Seguridad / idempotencia
 
-Ver `agent/lib/browser/`. Capability flags honestas. Mock ≠ producción.
-
-## Futuro (documental)
-
-Integración opcional Gmail/Calendar para ausencias — **no implementada**.
-
-
-## Observaciones UI (genéricas)
-
-Ver `agent/lib/ripor/uiObservations.ts`. Resumen:
-
-- Form actividad: combobox proyecto (label ambiguo tipo Insertar), spinbutton horas, textboxes descripción/evidencia, combobox transporte (“Seleccionar medio de transporte”).
-- Tarea default observada: **Tarea Personalizada**. Transporte ejemplo observado: **🏠 Trabajo Remoto**.
-- Wizard: Continuar / Cancelar / Volver / close. Lista: editar (lápiz), eliminar (X), crear (Registrar).
-- **Re-snapshot** roles/labels en cada sesión; no refs estáticos.
-- Headed auth observada; headless cross-restart **no** validado; adapter producción **no** verificado; ciclo manual IA create/update/delete/reopen verificado; adapter automático de mutaciones no implementado.
-- Prohibido versionar reportes reales / IDs / texto privado del usuario.
-
-## Cobertura (fail-closed)
-
-- Create/update exigen `coverageProof` (sustained ≥ draft.hours, source azure_confirmed) **o** under-hours con `dateYmd` vinculado + cantidad.
-- Flag `activitiesCoverFullDay` solo no basta.
-- Under **no** habilita fin de semana.
-- NaN en hours de existentes → bloqueo (no se trata como 0).
-
-
-## Recorrido genérico confirmado por prueba manual IA (no adapter automático)
-
-Registrar → Registro de Actividades → proyecto dropdown → marcar checkbox **Tarea Personalizada**
-(revela horas) → descripción/evidencia → transporte con filtro texto. **Un Continuar guarda
-DIRECTAMENTE**; no hay wizard posterior. Editar también guarda al primer Continuar.
-
-Eliminar: X de la fila → **¿Estás seguro que deseas eliminar este registro?** → **Continuar**
-confirma borrado. Gate/aprobación específica ANTES. Verificar ausencia antes de recreación
-separadamente autorizada. Después de crear, comprobar único reporte y reabrir lápiz para
-comparar todos los campos.
-
-Refs Playwright iniciales fallaron; GUI funcionó. Re-snapshot scoped a fila visible; esperar
-estabilización y fin de escritura, comprobar URL completa. Solo SINGLE URL de evidencia
-verificada. Headless cross-restart no probado. Ver detalles en BROWSER-MCP.md.
+- Preview con `snapshotHash`; apply exige `--approve --by --snapshot`; delete además `--delete-confirmed`.
+- Journal `pending` antes del POST. Error de red durante el POST o verificación que no cuadra → `unknown` → bloquea hasta `ripor reconcile`.
+- Sesión vencida antes de ejecutar → fallo definitivo (no deja el journal abierto).

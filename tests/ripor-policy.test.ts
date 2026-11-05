@@ -24,7 +24,7 @@ function baseDraft(over: Partial<RiporDraftFields> = {}): RiporDraftFields {
     areaProjectLabel: "Área X",
     taskLabel: "Tarea Personalizada",
     hours: 8.5,
-    description: "Trabajo confirmado en Azure.",
+    description: "Trabajo confirmado en Azure: desarrollo y pruebas sintéticas.",
     evidenceUrls: ["https://github.com/example/repo"],
     transportLabel: "🏠 Trabajo Remoto",
     transportIsDailyOverride: false,

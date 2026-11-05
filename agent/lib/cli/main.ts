@@ -25,11 +25,27 @@ import {
 } from "../ripor/setup.js";
 import { loadRiporProfile, saveRiporProfile, loadOrEmptyRiporProfile } from "../ripor/profileStore.js";
 import { previewRiporMutation, applyRiporMutation } from "../ripor/apply.js";
-import { createMockRiporUiAdapter, createUnimplementedRiporAdapter } from "../browser/adapter.js";
+import { createMockRiporUiAdapter } from "../browser/adapter.js";
 import { RIPOR_PUBLIC_URL, type RiporDraftFields, type RiporApproval } from "../ripor/types.js";
 import { loadRiporJournal, riporJournalBlocksMutations } from "../ripor/journal.js";
 import { defaultBrowserCapabilities } from "../browser/capabilities.js";
 import { riporBrowserProfileDir } from "../browser/paths.js";
+import {
+  argvHelpers,
+  cmdRiporCatalog,
+  cmdRiporList,
+  cmdRiporLogin,
+  cmdRiporLogout,
+  cmdRiporReconcile,
+  cmdRiporSession,
+  draftPayloadFromFlags,
+  fillDraftDefaults,
+  futureDateBlocker,
+  riporAdapterFor,
+  type RiporDraftPayload,
+} from "./riporHttp.js";
+import { describeRiporSession, loadRiporSession, resolveRiporSecretStore } from "../ripor/http/index.js";
+import { resolveAzureAccess, runAzureCommand } from "./azureCmd.js";
 
 function arg(flag: string): string | undefined {
   const i = process.argv.indexOf(flag);
@@ -99,16 +115,14 @@ async function loadClientForProfile() {
   if (!profile) throw new Error("No hay perfil. Ejecuta onboarding primero.");
   const useMock = has("--mock") || process.env.LINKY_AZURE_MODE === "mock";
   if (useMock) return { profile, client: createMockAzureClient().client, mode: "mock" as const };
-  const pat = await readAzurePat();
-  if (!pat) {
-    throw new Error("No hay PAT (keyring / LINKY_AZURE_PAT / sesión). No se usa archivo plaintext.");
-  }
+  // PAT (preferido) o sesión web de `azure login`.
+  const access = await resolveAzureAccess({ org: profile.azure.organizationUrl, dataDir: dataDir() });
   return {
     profile,
     client: createHttpAzureClient({
       organizationUrl: profile.azure.organizationUrl,
       project: profile.azure.project,
-      pat,
+      ...access.auth,
     }),
     mode: "http" as const,
   };
@@ -218,18 +232,18 @@ async function cmdStatus() {
 }
 
 
-function riporAdapter() {
-  if (has("--mock") || process.env.LINKY_RIPOR_MODE === "mock") {
-    return createMockRiporUiAdapter();
-  }
-  // Honest: no fingir Playwright operativo en este proceso CLI sin inyección.
-  return createUnimplementedRiporAdapter();
+function riporMock(): boolean {
+  return has("--mock") || process.env.LINKY_RIPOR_MODE === "mock";
 }
 
 async function cmdRiporSetup() {
   const answersFile = arg("--answers");
   if (!answersFile) throw new Error("Falta --answers <ripor-setup.json>");
   const answers = await readJson<RiporSetupInput>(answersFile);
+  // Overrides del usuario sobre las respuestas del catálogo.
+  if (arg("--project")) answers.chosenAreaProjectLabel = arg("--project")!;
+  if (arg("--task")) answers.chosenTaskLabel = arg("--task")!;
+  if (arg("--transporte")) answers.chosenTransportLabel = arg("--transporte")!;
   const result = buildRiporProfileFromSetup(answers);
   if (!result.ok || !result.profile) {
     console.log(JSON.stringify({ ok: false, errors: result.errors, warnings: result.warnings }, null, 2));
@@ -258,32 +272,17 @@ async function cmdRiporSetup() {
 }
 
 async function cmdRiporPreview() {
-  const draftFile = arg("--draft");
-  if (!draftFile) throw new Error("Falta --draft <json>");
-  const payload = await readJson<{
-    op?: "create" | "update" | "delete";
-    dateYmd: string;
-    draft?: RiporDraftFields;
-    reportId?: string;
-    activitiesCoverFullDay?: boolean;
-    sustainedActivityHours?: number;
-    coverageProof?: {
-      sustainedActivityHours: number;
-      coversDraftDedication: true;
-      source: "azure_confirmed";
-    };
-  }>(draftFile);
   const profile = await loadRiporProfile(dataDir());
   if (!profile?.setupComplete) throw new Error("Falta ripor setup.");
+  const draftFile = arg("--draft");
+  const payload: RiporDraftPayload = draftFile
+    ? await readJson<RiporDraftPayload>(draftFile)
+    : draftPayloadFromFlags(argvHelpers(), profile);
+  if (payload.draft) payload.draft = fillDraftDefaults(payload.draft, profile);
   const op = payload.op ?? "create";
-  const adapter = riporAdapter();
-  if (adapter.kind === "unimplemented" && !has("--mock")) {
-    console.error(
-      "AVISO: adapter unimplemented (sin Playwright inyectado). Use --mock para preview offline o inyecte adapter en host.",
-    );
-  }
+  const adapter = await riporAdapterFor(profile, riporMock());
   const preview = await previewRiporMutation({
-    adapter: has("--mock") || process.env.LINKY_RIPOR_MODE === "mock" ? createMockRiporUiAdapter() : adapter,
+    adapter,
     profile,
     op,
     dateYmd: payload.dateYmd,
@@ -293,25 +292,41 @@ async function cmdRiporPreview() {
     sustainedActivityHours: payload.sustainedActivityHours,
     coverageProof: payload.coverageProof,
   });
+  const future = futureDateBlocker(preview.dateYmd);
+  if (future) preview.blockers.push(future);
   const out = arg("--out") ?? path.join(linkyDataDir(dataDir()), "last-ripor-preview.json");
   await mkdir(path.dirname(out), { recursive: true });
-  await writeFile(out, JSON.stringify(preview, null, 2));
+  await writeFile(out, JSON.stringify(preview, null, 2), { encoding: "utf8", mode: 0o600 });
   console.log(
     JSON.stringify(
       {
         out,
         snapshotHash: preview.snapshotHash,
         op: preview.op,
-        blockers: preview.blockers,
+        mostrarAlUsuario: {
+          fecha: preview.dateYmd,
+          proyectoArea: preview.fields?.areaProjectLabel,
+          tarea: preview.fields?.taskLabel,
+          horas: preview.fields?.hours,
+          descripcion: preview.fields?.description,
+          evidencia: preview.fields?.evidenceUrls,
+          transporte: preview.fields?.transportLabel,
+          antes: preview.before ?? null,
+        },
+        existingHoursSameDay: preview.existingHoursSameDay,
         proposedTotalHours: preview.proposedTotalHours,
         expectedHoursForDay: preview.expectedHoursForDay,
-        publicUrl: preview.publicUrl,
-        adapterKind: has("--mock") ? "mock" : adapter.kind,
+        blockers: preview.blockers,
+        adapterKind: adapter.kind,
+        next: preview.blockers.length
+          ? "Corregir blockers y repetir preview."
+          : `Tras aprobación del usuario: npm run linky -- ripor apply --preview "${out}" --approve --by <usuario> --snapshot ${preview.snapshotHash}`,
       },
       null,
       2,
     ),
   );
+  if (preview.blockers.length) process.exitCode = 1;
 }
 
 async function cmdRiporApply() {
@@ -334,26 +349,22 @@ async function cmdRiporApply() {
     deleteConfirmed: has("--delete-confirmed"),
   };
 
-  const useMock = has("--mock") || process.env.LINKY_RIPOR_MODE === "mock";
-  if (!useMock) {
-    throw new Error(
-      "Apply Ripor real requiere host con Playwright MCP inyectado. En CLI local use --mock (no publica a Ripor).",
-    );
-  }
+  const future = futureDateBlocker(preview.dateYmd);
+  if (future) throw new Error(future);
 
-  const existingSeed =
-    preview.before && preview.reportId
-      ? {
-          [preview.dateYmd]: [
-            {
-              id: preview.reportId,
-              hours: preview.before.hours,
-              summary: preview.before.description,
-            },
-          ],
-        }
-      : undefined;
-  const adapter = createMockRiporUiAdapter({ existing: existingSeed });
+  const useMock = riporMock();
+  const adapter = useMock
+    ? createMockRiporUiAdapter({
+        existing:
+          preview.before && preview.reportId
+            ? {
+                [preview.dateYmd]: [
+                  { id: preview.reportId, hours: preview.before.hours, summary: preview.before.description },
+                ],
+              }
+            : undefined,
+      })
+    : await riporAdapterFor(profile, false);
 
   const coverageProof = preview.coverageProof;
   const result = await applyRiporMutation({
@@ -370,7 +381,7 @@ async function cmdRiporApply() {
     dataDir: dataDir(),
     dryRun: has("--dry-run"),
   });
-  console.log(JSON.stringify({ approvedBy: by, mock: true, result }, null, 2));
+  console.log(JSON.stringify({ approvedBy: by, mode: adapter.kind, result }, null, 2));
   if (!result.ok) process.exit(1);
 }
 
@@ -380,13 +391,9 @@ async function cmdRiporDeletePreview() {
   if (!dateYmd || !id) throw new Error("Delete preview requiere --date YYYY-MM-DD y --id <reportId>");
   const profile = await loadRiporProfile(dataDir());
   if (!profile?.setupComplete) throw new Error("Falta ripor setup.");
-  const useMock = has("--mock") || process.env.LINKY_RIPOR_MODE === "mock";
-  if (!useMock) {
-    throw new Error("Use --mock en CLI local, o host Playwright. No delete real desde este stub.");
-  }
-  const adapter = createMockRiporUiAdapter({
-    existing: { [dateYmd]: [{ id, hours: Number(arg("--hours") ?? 8.5) }] },
-  });
+  const adapter = riporMock()
+    ? createMockRiporUiAdapter({ existing: { [dateYmd]: [{ id, hours: Number(arg("--hours") ?? 8.5) }] } })
+    : await riporAdapterFor(profile, false);
   const preview = await previewRiporMutation({
     adapter,
     profile,
@@ -403,6 +410,7 @@ async function cmdRiporDeletePreview() {
         out,
         snapshotHash: preview.snapshotHash,
         note: "Apply delete requiere --approve --delete-confirmed --by …",
+        antes: preview.before ?? null,
         blockers: preview.blockers,
       },
       null,
@@ -453,8 +461,8 @@ async function cmdRiporStatus() {
         capabilities: defaultBrowserCapabilities(),
         journalOpen: block,
         journalEntries: journal.length,
-        adapterNote:
-          "CLI sin Playwright inyectado: use --mock. Navegación real a cargo del host/parent.",
+        session: describeRiporSession(await loadRiporSession(await resolveRiporSecretStore())),
+        adapterNote: "Modo HTTP por defecto (sesión en keyring). --mock para pruebas offline.",
       },
       null,
       2,
@@ -493,6 +501,9 @@ async function main() {
       else throw new Error("browser setup|status: generate local MCP config only, no automatic installation/connection");
       break;
     }
+    case "azure":
+      await runAzureCommand(process.argv[3], argvHelpers(), dataDir());
+      break;
     case "ripor": {
       const sub = process.argv[3];
       if (sub === "setup") await cmdRiporSetup();
@@ -500,21 +511,27 @@ async function main() {
       else if (sub === "apply") await cmdRiporApply();
       else if (sub === "delete-preview") await cmdRiporDeletePreview();
       else if (sub === "status") await cmdRiporStatus();
+      else if (sub === "login") await cmdRiporLogin(argvHelpers());
+      else if (sub === "logout") await cmdRiporLogout();
+      else if (sub === "session") await cmdRiporSession(argvHelpers(), dataDir());
+      else if (sub === "catalog") await cmdRiporCatalog(argvHelpers(), dataDir());
+      else if (sub === "list") await cmdRiporList(argvHelpers(), dataDir());
+      else if (sub === "reconcile") await cmdRiporReconcile(argvHelpers(), dataDir());
       else if (sub === "check") await cmdRiporUiCheck(false);
       else if (sub === "gate") await cmdRiporUiCheck(true);
       else {
-        console.log(`linky ripor <setup|preview|apply|delete-preview|status|check|gate>
+        console.log(`linky ripor <login|logout|session|catalog|setup|list|preview|apply|delete-preview|reconcile|status|check|gate>
 URL: ${RIPOR_PUBLIC_URL}
-Solo UI; --mock offline. Apply real requiere Playwright del host. No cookies/API internas.`);
+HTTP con la sesión del usuario (keyring); navegador solo en "ripor login". --mock offline.`);
         process.exit(sub ? 1 : 0);
       }
       break;
     }
     default:
       console.log(`Linky CLI
-Comandos: onboarding | plan | preview | apply | reconcile | drafts | status | ripor | browser
+Comandos: onboarding | plan | preview | apply | reconcile | drafts | status | azure | ripor | browser
 Flags: --data-dir --mock --secret-backend env|session --approve --by --snapshot --key
-Ripor: ripor setup|preview|apply|delete-preview|status (URL https://ripor.co/u/horas)
+Ripor: ripor login|catalog|setup|list|preview|apply|delete-preview|reconcile|status (URL https://ripor.co/u/horas)
 PAT: keyring OS; alternativa explícita env/session. Nunca archivo plaintext.
 Expiry/scopes: user-reported (no se leen del string PAT). Recordatorio OS solo opt-in.
 Scheduling no se activa al instalar.`);
@@ -524,5 +541,6 @@ Scheduling no se activa al instalar.`);
 
 main().catch((e) => {
   console.error(String((e as Error).message || e));
-  process.exit(1);
+  // exitCode (no process.exit): en Windows salir con handles de red abiertos dispara una aserción de libuv.
+  process.exitCode = 1;
 });

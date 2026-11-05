@@ -42,7 +42,7 @@ export function browserSetupPlan(dataDir?: string) {
       "Headless es configuración de arranque, no cambio garantizado en caliente; requerirá reiniciar con el mismo perfil.",
       "El perfil contiene estado autenticado administrado por el navegador: privado, no sincronizar/zip/exportar ni leer con Linky.",
       "Core MCP puede exponer herramientas peligrosas: el cliente DEBE bloquear evaluate/run_code/network/storage; Linky usa una allowlist adicional.",
-      "La configuración MCP de Grok Bot no se exporta: solo el servidor npm estándar y la skill son portables.",
+      "No se exportan configuraciones de plugins propietarios: solo el servidor npm estándar y la skill son portables.",
     ],
   };
 }

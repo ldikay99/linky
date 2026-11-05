@@ -4,8 +4,9 @@
  */
 import { readdir, readFile, lstat } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SKIP = new Set(["node_modules", ".git", ".linky-demo", "browser-profiles", "dist", "coverage", "private-ripor"]);
 
 const PATTERNS: Array<{ name: string; re: RegExp }> = [
@@ -13,6 +14,10 @@ const PATTERNS: Array<{ name: string; re: RegExp }> = [
   { name: "bearer-jwt", re: /eyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]{20,}\./ },
   { name: "azure-pat-header", re: /Basic\s+[A-Za-z0-9+/=]{20,}/ },
   { name: "password-url", re: /https?:\/\/[^\/\s]+:[^@\/\s]+@/ },
+  // PAT Azure DevOps (formato actual: 84 caracteres con firma "AZDO" en la posición 77).
+  { name: "azure-pat", re: /\b[A-Za-z0-9]{76}AZDO[A-Za-z0-9]{4}\b/ },
+  // Cookie de sesión Supabase/Ripor serializada.
+  { name: "session-cookie-base64", re: /base64-eyJ[A-Za-z0-9_-]{40,}/ },
 ];
 
 async function walk(dir: string, out: string[] = []): Promise<string[]> {
@@ -46,7 +51,7 @@ async function main() {
     } catch {
       continue;
     }
-    const rel = path.relative(ROOT, f);
+    const rel = path.relative(ROOT, f).split(path.sep).join("/");
     for (const { name, re } of PATTERNS) {
       if (re.test(text)) {
         if (name === "password-url" && ALLOW_PASSWORD_URL_FIXTURE.has(rel)) continue;

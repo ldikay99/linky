@@ -21,6 +21,10 @@ export type PolicyResult = {
 };
 
 const EPS = 1e-9;
+/** Mínimo que valida el formulario oficial de Ripor. */
+export const RIPOR_DESCRIPTION_MIN_CHARS = 50;
+/** "Breve": tope por defecto (configurable en el perfil). */
+export const RIPOR_DESCRIPTION_MAX_CHARS = 500;
 
 /**
  * Suma horas de existentes. NaN/negativos/undefined NO se tratan como 0: fallan.
@@ -300,6 +304,14 @@ export function evaluateRiporPolicy(input: {
     blockers.push(
       "Descripción breve desde actividades Azure confirmadas (sin fabricar ni mezclar plan futuro como hecho).",
     );
+  }
+  const desc = draft.description?.trim() ?? "";
+  if (desc && desc.length < RIPOR_DESCRIPTION_MIN_CHARS) {
+    blockers.push(`Descripción muy corta: ${desc.length} caracteres (Ripor exige mínimo ${RIPOR_DESCRIPTION_MIN_CHARS}).`);
+  }
+  const maxDesc = input.profile.descriptionMaxChars ?? RIPOR_DESCRIPTION_MAX_CHARS;
+  if (desc.length > maxDesc) {
+    blockers.push(`Descripción no es breve: ${desc.length} caracteres > ${maxDesc}. Resumir.`);
   }
   const ev = validateEvidenceUrls(draft.evidenceUrls);
   if (!ev.ok) blockers.push(...ev.errors);

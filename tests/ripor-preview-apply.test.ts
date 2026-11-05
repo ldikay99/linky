@@ -34,7 +34,7 @@ function draft(over: Partial<RiporDraftFields> = {}): RiporDraftFields {
     areaProjectLabel: "[MOCK] Área",
     taskLabel: RIPOR_UI_OBSERVATIONS.form.taskDefaultLabelObserved,
     hours: 8.5,
-    description: "Actividades Azure confirmadas del día (test).",
+    description: "Actividades Azure confirmadas del día (test sintético completo).",
     evidenceUrls: ["https://github.com/example/repo"],
     transportLabel: "🏠 Trabajo Remoto",
     transportIsDailyOverride: false,
@@ -148,7 +148,7 @@ describe("ripor preview/apply adversarial", () => {
     const preview = buildRiporPreview({
       op: "update",
       dateYmd: "2026-11-05",
-      draft: draft({ description: "Corregido." }),
+      draft: draft({ description: "Corregido: resumen sintético de actividades Azure confirmadas." }),
       existingSameDay: [{ id: "mock-1", dateYmd: "2026-11-05", hours: 8.5, description: "old" }],
       profile,
       reportId: "mock-1",
@@ -161,7 +161,7 @@ describe("ripor preview/apply adversarial", () => {
       profile,
       op: "update",
       dateYmd: "2026-11-05",
-      draft: draft({ description: "Corregido." }),
+      draft: draft({ description: "Corregido: resumen sintético de actividades Azure confirmadas." }),
       reportId: "mock-1",
       approval: {
         op: "update",

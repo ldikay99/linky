@@ -1,4 +1,4 @@
-/** Tipos Ripor — UI pública https://ripor.co/u/horas únicamente. */
+/** Tipos Ripor — https://ripor.co/u/horas (formulario web vía HTTP o UI). */
 
 export const RIPOR_PUBLIC_URL = "https://ripor.co/u/horas" as const;
 
@@ -35,6 +35,10 @@ export type RiporAreaProject = {
   /** ID interno solo si se observa en UI; nunca inventar del ejemplo. */
   uiValue?: string;
   verifiedFromUi: boolean;
+  /** IDs del formulario (modo HTTP). Solo desde catálogo/reporte real de la cuenta. */
+  projectId?: number;
+  analyticAccountId?: number;
+  code?: string;
 };
 
 export type RiporTaskOption = {
@@ -62,7 +66,13 @@ export type RiporProfile = {
   defaultTransport?: RiporTransportOption;
   /** Proyectos Azure (referencia; no se envían como proyecto Ripor) */
   azureProjectHints: string[];
+  /** Catálogo de tareas (uiValue = report_task_id) para overrides explícitos. */
+  taskOptions?: RiporTaskOption[];
+  /** Catálogo de transportes (formValue = valor medio_transporte) para override diario. */
+  transportOptions?: RiporTransportOption[];
   setupComplete: boolean;
+  /** Tope de la descripción breve (default 500; Ripor exige mínimo 50). */
+  descriptionMaxChars?: number;
   notes?: string[];
 };
 

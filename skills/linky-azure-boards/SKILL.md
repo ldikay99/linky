@@ -7,14 +7,42 @@ description: Guía agnóstica de IA para onboarding y registro diario en Azure B
 
 **Autor:** Jonathan Contreras
 
-No depende de Grok, ChatGPT, Claude, eve ni AI Gateway. Núcleo: `npm run linky`.
+Sirve con cualquier asistente de IA que pueda ejecutar comandos. Núcleo: `npm run linky`.
+
+## Conexión (una vez por organización)
+
+Una persona puede trabajar en **varias organizaciones** (la de su empresa y otras de clientes/consorcios).
+Preguntar cuál es la **principal**: es el default para todo; usar otra solo si el usuario la indica.
+
+```bash
+npm run linky -- azure connect --org https://dev.azure.com/<org-principal> --primary   # PAT, entrada oculta (preferido)
+npm run linky -- azure connect --org https://dev.azure.com/<otra-org>                  # PAT propio de esa org
+npm run linky -- azure login --org https://dev.azure.com/<org>                         # alternativa sin PAT (navegador, una vez)
+npm run linky -- azure orgs                                                            # estado y principal
+npm run linky -- azure use --org https://dev.azure.com/<org>                           # cambiar principal
+```
+
+- PAT: preferido **Full access** si el usuario lo acepta (ack); mínimo Work Items Read & Write. Un PAT suele valer solo para su organización.
+- Nunca pedir el PAT en el chat: el comando lo pide oculto. Si el usuario lo pega en el chat, guardarlo con `azure connect` (vía `LINKY_AZURE_PAT_INPUT`, sin escribirlo a archivos) y recomendarle revocarlo y crear otro.
+- Con la sesión conectada todo va por REST; el navegador solo se usa para el login.
+
+## Leer lo que hizo la persona
+
+```bash
+npm run linky -- azure activity --date YYYY-MM-DD           # organización principal
+npm run linky -- azure activity --date YYYY-MM-DD --all     # todas las conectadas
+```
+
+Devuelve los work items que **la persona** cambió ese día (zona horaria del equipo): título, proyecto, estado,
+cambios de estado, horas completadas (`completedWorkDelta`), comentarios y URL. Es la fuente para la descripción
+de Ripor (skill `linky-ripor`) y para no inventar trabajo.
 
 ## Setup OBLIGATORIO (una vez)
 
 Preguntar y guardar (sin defaults inventados de proyecto):
 
 1. **Proyecto Azure** (nombre exacto) — crítico
-2. Org URL estricta + **PAT** (entrada oculta → keyring/env/session)
+2. Org URL estricta + credencial (`azure connect` / `azure login`), organización principal confirmada
 3. **Ocupación/rol** de la persona y **contexto del proyecto** (para redactar/refinar HU y Tasks breves y contextualizadas)
 4. **Asignado** (`System.AssignedTo`) y **responsable** separados: tag (`System.Tags`) y/o mención en Description — no mezclar
 5. Quién **crea** y quién **refina** HU (`user_or_ai_with_approval` | `scrum_or_third_party_only`). Si scrum/tercero: al trabajar pedir **ID HU existente**; nunca crear/clonar/mover contra política

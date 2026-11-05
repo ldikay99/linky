@@ -13,6 +13,11 @@ Autor: **Jonathan Contreras**.
 - Full access solo con ack; recomendar Work Items R/W.
 - Nunca copiar tokens del chat a fixtures, git, zip o logs.
 
+## Cuentas
+
+- Azure: puede haber varias organizaciones; una es la **principal** (default). Otra solo si el usuario la pide (`azure connect/login/use`).
+- Ripor: una sesión por persona (`ripor login`). Navegador solo para login; el resto por petición directa.
+
 ## Operación
 
 Una config; preguntar solo faltantes; preview+approval; journal fail-closed; ejemplos solo sintéticos.

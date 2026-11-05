@@ -18,7 +18,8 @@
     "test:watch": "vitest",
     "demo:mock": "tsx scripts/demo-mock.ts",
     "demo:ripor": "tsx scripts/demo-ripor-mock.ts",
-    "scan": "tsx scripts/scan-secrets.ts"
+    "scan": "tsx scripts/scan-secrets.ts",
+    "prepare": "node -e \"try{require('child_process').execSync('git config core.hooksPath .githooks',{stdio:'ignore'})}catch{}\""
   },
   "dependencies": {
     "@napi-rs/keyring": "^2.1.2",
@@ -36,9 +37,12 @@
   "engines": {
     "node": "24.x"
   },
-  "description": "Linky: CLI + skills agn\u00f3sticas Azure Boards + Ripor (UI), secretos fuera del repo",
+  "description": "Linky: CLI + skills agnósticas Azure Boards + Ripor (UI), secretos fuera del repo",
   "bin": {
     "linky": "./agent/lib/cli/main.ts"
   },
-  "author": "Jonathan Contreras"
+  "author": "Jonathan Contreras",
+  "optionalDependencies": {
+    "playwright-core": "1.64.0"
+  }
 }

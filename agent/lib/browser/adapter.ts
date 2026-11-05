@@ -9,7 +9,7 @@ export type RiporUiSessionStatus = "unknown" | "needs_login" | "authenticated" |
  * Implementación real la provee el host con MCP Playwright; aquí hay mock + stub no productivo.
  */
 export type RiporUiAdapter = {
-  kind: "mock" | "playwright_mcp" | "unimplemented";
+  kind: "mock" | "playwright_mcp" | "http" | "unimplemented";
   capabilities: BrowserCapabilities;
   ensureSession(opts: { allowHeadedLogin: boolean; dataDir?: string }): Promise<{
     status: RiporUiSessionStatus;

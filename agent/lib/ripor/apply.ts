@@ -27,7 +27,7 @@ export type RiporApplyResult = {
 /**
  * Apply con preview hash + aprobación específica.
  * Revalida políticas; journal fail-closed; no repetir guardar si UI incierta.
- * Solo UI vía adapter (mock o Playwright host). Nunca APIs internas.
+ * Vía adapter: HTTP (formulario web con la sesión del usuario), mock o Playwright del host.
  */
 export async function applyRiporMutation(input: {
   adapter: RiporUiAdapter;
