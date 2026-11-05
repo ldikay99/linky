@@ -50,6 +50,19 @@ Preguntar y guardar (sin defaults inventados de proyecto):
 7. Convención de títulos (opcional configurable)
 8. PAT expiry user-reported + tz dispositivo; scopes recomendados Work Items R/W; Full access solo con ack
 
+## Crear Tasks (campos del proceso)
+
+Al crear, Linky hereda **Iteración y Área de la HU padre**, respeta los defaults del proceso y, para campos
+obligatorios propios del equipo (p. ej. `Microsoft.VSTS.Common.Activity`, `Custom.SubActividad`), usa en orden:
+valor explícito de la actividad (`fields`) → `azure.taskFieldDefaults` del perfil → valor más usado en las **Tasks
+hermanas** de la misma HU. Siempre valida contra los valores permitidos. Si el proceso exige estimación y la tarea
+ya está hecha, usa la hora real y lo indica en el preview.
+
+## Eliminar
+
+Solo si el usuario lo pide explícitamente: `npm run linky -- azure delete --id <n>` (muestra qué es) y, tras su
+confirmación, `--approve`. Va a la papelera de reciclaje de Azure (recuperable).
+
 ## Estados
 
 Por defecto solo: **planeación / en curso / entregado**.

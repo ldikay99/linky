@@ -136,6 +136,30 @@ export async function runAzureCommand(sub: string | undefined, a: Argv, dataDir?
     return;
   }
 
+  if (sub === "delete") {
+    const id = Number(a.arg("--id"));
+    if (!Number.isInteger(id) || id <= 0) throw new Error("azure delete --id <workItemId> [--org …] [--approve]");
+    const access = await resolveAzureAccess({ org: orgArg, dataDir });
+    const headers = { ...azureAuthHeaders(access.auth), accept: "application/json" };
+    const url = `${access.organizationUrl}/_apis/wit/workitems/${id}?api-version=7.1`;
+    const get = await fetch(url, { headers, redirect: "manual", signal: AbortSignal.timeout(30_000) });
+    assertAzureAuthenticated(get);
+    if (!get.ok) throw new Error(`Work item ${id}: HTTP ${get.status}`);
+    const f = ((await get.json()) as { fields: Record<string, unknown> }).fields;
+    const target = { id, type: f["System.WorkItemType"], title: f["System.Title"], state: f["System.State"], project: f["System.TeamProject"] };
+    if (!a.has("--approve")) {
+      print({ preview: target, note: "Se moverá a la papelera de reciclaje de Azure (recuperable). Repite con --approve tras confirmar con el usuario." });
+      return;
+    }
+    const del = await fetch(url, { method: "DELETE", headers, redirect: "manual", signal: AbortSignal.timeout(30_000) });
+    assertAzureAuthenticated(del);
+    if (!del.ok) throw new Error(`Eliminar ${id}: HTTP ${del.status} ${(await del.text()).slice(0, 200)}`);
+    const check = await fetch(url, { headers, redirect: "manual", signal: AbortSignal.timeout(30_000) });
+    print({ ok: check.status === 404, deleted: target, verify: `GET → HTTP ${check.status}`, recycleBin: true });
+    if (check.status !== 404) process.exitCode = 1;
+    return;
+  }
+
   if (sub === "activity") {
     const dateYmd = a.arg("--date") ?? todayLocalYmd();
     const reg = await loadAzureOrgs(dataDir);
@@ -156,11 +180,12 @@ export async function runAzureCommand(sub: string | undefined, a: Argv, dataDir?
     return;
   }
 
-  console.log(`linky azure <connect|login|orgs|use|logout|activity>
+  console.log(`linky azure <connect|login|orgs|use|logout|activity|delete>
   connect --org https://dev.azure.com/<org> [--primary]   PAT (preferido), entrada oculta
   login   [--org …] [--primary]                           sesión web (navegador visible, una vez)
   orgs                                                    organizaciones conectadas y cuál es la principal
   use     --org …                                         cambiar la principal
-  activity [--date YYYY-MM-DD] [--org … | --all]          lo que hiciste ese día`);
+  activity [--date YYYY-MM-DD] [--org … | --all]          lo que hiciste ese día
+  delete  --id <n> [--org …] [--approve]                  a la papelera de Azure (preview sin --approve)`);
   if (sub) process.exitCode = 1;
 }

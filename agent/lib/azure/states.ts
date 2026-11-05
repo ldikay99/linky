@@ -6,6 +6,11 @@ const CLOSED_NAME = /^(closed|cerrad[oa]|4\.?\s*cerrad[oa])$/i;
 const CLOSED_CAT = /completed|removed/i;
 const COMPLETED_NAME = /^(completed|complete|done|finalizad[oa])$/i;
 
+/** Quita prefijos de orden de procesos personalizados: "3. Entregado", "2 - En curso", "X. Removido". */
+export function stateBaseName(name: string): string {
+  return name.trim().replace(/^[0-9A-Za-z]{1,2}\s*[.)\-]\s+/, "").toLowerCase();
+}
+
 export function isClosedLikeState(state: StateMeta): boolean {
   const name = state.name.trim();
   if (CLOSED_NAME.test(name)) return true;
@@ -25,7 +30,7 @@ export function resolveTargetState(
   meta: ProcessMeta,
   intent: DeliveryIntent,
 ): { state?: string; needsConfirmation: boolean; reason: string; isCloseLike: boolean } {
-  const entries = meta.states.map((s) => ({ raw: s.name, l: s.name.toLowerCase().trim(), meta: s }));
+  const entries = meta.states.map((s) => ({ raw: s.name, l: s.name.toLowerCase().trim(), base: stateBaseName(s.name), meta: s }));
 
   if (intent === "planeado") {
     const hit = entries.find((s) => /to\s*do|new|proposed|backlog|pendiente|planeaci/.test(s.l) && !isClosedLikeState(s.meta));
@@ -43,7 +48,7 @@ export function resolveTargetState(
 
   if (intent === "entregado") {
     // Prefer exact Entregado; never pick Closed/Completed/4.Cerrado
-    const exact = entries.find((s) => s.l === "entregado");
+    const exact = entries.find((s) => s.base === "entregado" && !isClosedLikeState(s.meta));
     if (exact) return { state: exact.raw, needsConfirmation: false, reason: "Estado Entregado exacto", isCloseLike: false };
     const hit = entries.find(
       (s) => /entregado|resolved/i.test(s.l) && !isClosedLikeState(s.meta) && !/closed|cerrad|completed|done/i.test(s.l),
