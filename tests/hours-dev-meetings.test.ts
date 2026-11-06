@@ -87,6 +87,12 @@ describe("avisos proactivos", async () => {
         { organizacion: "https://dev.azure.com/A", vence: "2026-11-09" },
         { organizacion: "https://dev.azure.com/B", vence: "2026-11-01" },
         { organizacion: "https://dev.azure.com/C" },
+        { organizacion: "https://dev.azure.com/D", vence: "2027-04-02", funciona: false },
+        { organizacion: "https://dev.azure.com/E", vence: "2027-04-02" },
+      ],
+      avisosAzure: [
+        { organization: "C", expiresOn: "2026-11-10" },
+        { organization: "E", expiresOn: "2026-11-10" }, // token viejo: no es el que usa Linky
       ],
       tareasEnCurso: [{ id: 7, titulo: "Vieja", desde: "2026-10-20T10:00:00Z" }, { id: 8, titulo: "Nueva", desde: "2026-11-04T10:00:00Z" }],
       huerfanos: 3,
@@ -95,7 +101,10 @@ describe("avisos proactivos", async () => {
     const text = a.map((x) => `${x.nivel}:${x.mensaje}`).join(" | ");
     expect(text).toMatch(/media:El PAT de https:\/\/dev.azure.com\/A vence en 4 día/);
     expect(text).toMatch(/alta:El PAT de https:\/\/dev.azure.com\/B venció/);
-    expect(text).toMatch(/info:Sin fecha de vencimiento del PAT de https:\/\/dev.azure.com\/C/);
+    expect(text).not.toMatch(/Sin fecha/);
+    expect(text).toMatch(/media:Azure avisa que un PAT de https:\/\/dev.azure.com\/C vence el 2026-11-10/);
+    expect(text).not.toMatch(/dev.azure.com\/E vence el 2026-11-10/);
+    expect(text).toMatch(/alta:El PAT de https:\/\/dev.azure.com\/D ya no funciona/);
     expect(text).toMatch(/#7 "Vieja" lleva 16 días en curso/);
     expect(text).not.toMatch(/#8/);
     expect(text).toMatch(/3 navegador\(es\) de Linky huérfanos/);

@@ -25,3 +25,6 @@ browser-profiles/
 /workspace/private-ripor/
 private-ripor/
 **/private-ripor/
+
+# Ajustes locales del asistente (aprobaciones por persona; no se suben)
+.claude/settings.local.json

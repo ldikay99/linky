@@ -159,3 +159,33 @@ describe("descarga de adjuntos y correos (determinista)", async () => {
     expect(gmailTitleYmd("sin fecha")).toBeUndefined();
   });
 });
+
+describe("vencimiento del PAT desde correos de Azure", async () => {
+  const { parsePatMail, patExpiriesByOrg, parseAzureMailDate } = await import("../agent/lib/azure/patMail.js");
+  const { gmailTitleYmd } = await import("../agent/lib/mail/gmail.js");
+  const added = (exp: string) => "A new personal access token was added to your organization\nName\tlinky\nScopes\tAll scopes\nExpiring on\t" + exp + "\nOrganization\tExampleOrg";
+
+  it("fecha mes/día/año y organización de la línea de la tabla (no de la prosa)", () => {
+    expect(parseAzureMailDate("4/2/2027")).toBe("2027-04-02");
+    expect(parsePatMail("Azure DevOps personal access token added", added("4/2/2027"), "jue, 5 nov 2026, 19:06")).toEqual({
+      kind: "added", organization: "ExampleOrg", expiresOn: "2027-04-02", receivedOn: "2026-11-05",
+    });
+    const nearing = parsePatMail("Azure DevOps personal access token nearing expiration", "One of your personal access tokens will be expiring on 11/10/2026.\nExpiring on\t11/10/2026\nOrganization\tExampleOrg", "mar, 3 nov 2026, 20:50");
+    expect(nearing).toMatchObject({ kind: "nearing", expiresOn: "2026-11-10", receivedOn: "2026-11-03" });
+    expect(parsePatMail("[GitHub] token", "x")).toBeUndefined();
+  });
+
+  it("el día de la semana no se confunde con el mes (mar = martes)", () => {
+    expect(gmailTitleYmd("mar, 3 nov 2026, 20:50")).toBe("2026-11-03");
+    expect(gmailTitleYmd("sáb, 7 nov 2026, 9:00")).toBe("2026-11-07");
+  });
+
+  it("toma el token creado más recientemente por organización", () => {
+    const m = [
+      parsePatMail("Azure DevOps personal access token added", added("10/11/2026"), "mié, 12 ago 2026, 11:14")!,
+      parsePatMail("Azure DevOps personal access token added", added("3/2/2027"), "jue, 5 nov 2026, 16:55")!,
+      parsePatMail("Azure DevOps personal access token added", added("4/2/2027"), "jue, 5 nov 2026, 19:06")!,
+    ];
+    expect(patExpiriesByOrg(m).latestAdded.get("exampleorg")?.expiresOn).toBe("2027-04-02");
+  });
+});

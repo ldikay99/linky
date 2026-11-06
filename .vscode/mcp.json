@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "linky": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${workspaceFolder}/node_modules/tsx/dist/cli.mjs", "${workspaceFolder}/agent/lib/mcp/server.ts"]
+    }
+  }
+}

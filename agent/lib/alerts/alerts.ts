@@ -13,7 +13,10 @@ export function buildAlerts(input: {
   laborableHoy: boolean;
   finJornadaHHmm?: string;
   ripor?: { reportadoHoy?: number; esperadoHoy: number; diasPendientesMes: string[]; sesion: boolean; journalBloqueado?: string };
-  pats: Array<{ organizacion: string; vence?: string }>;
+  /** funciona=false si el token ya no autentica (vencido o revocado). */
+  pats: Array<{ organizacion: string; vence?: string; funciona?: boolean }>;
+  /** Avisos "nearing expiration" que Azure envió por correo. */
+  avisosAzure?: Array<{ organization: string; expiresOn: string }>;
   tareasEnCurso: Array<{ id: number; titulo: string; desde?: string }>;
   diasEstancada?: number;
   eventosSinClasificar?: number;
@@ -39,14 +42,24 @@ export function buildAlerts(input: {
       out.push({ nivel: "alta", area: "ripor", mensaje: `${pasados.length} día(s) del mes sin completar en Ripor: ${pasados.join(", ")}.`, accion: "npm run linky -- ripor month --suggest" });
     }
   }
+  const renew = (org: string) => `Crear un PAT nuevo en ${org} (Full access, 90 días) y conectarlo: npm run linky -- azure connect --org ${org}`;
   for (const p of input.pats) {
-    if (!p.vence) {
-      out.push({ nivel: "info", area: "azure", mensaje: `Sin fecha de vencimiento del PAT de ${p.organizacion}.`, accion: `npm run linky -- azure expires --org ${p.organizacion} --date YYYY-MM-DD` });
+    if (p.funciona === false) {
+      out.push({ nivel: "alta", area: "azure", mensaje: `El PAT de ${p.organizacion} ya no funciona (vencido o revocado).`, accion: renew(p.organizacion) });
       continue;
     }
+    // Aviso de Azure por correo: solo si es el token que usa Linky (misma fecha) o si su fecha no se conoce.
+    const orgName = p.organizacion.split("/").filter(Boolean).pop()!.toLowerCase();
+    for (const n of input.avisosAzure ?? []) {
+      if (n.organization.toLowerCase() !== orgName || n.expiresOn < input.todayYmd) continue;
+      if (!p.vence || p.vence === n.expiresOn) {
+        out.push({ nivel: "media", area: "azure", mensaje: `Azure avisa que un PAT de ${p.organizacion} vence el ${n.expiresOn}.`, accion: renew(p.organizacion) });
+      }
+    }
+    if (!p.vence) continue; // sin fecha: se detecta por correo de Azure o al fallar el token
     const left = daysBetween(input.todayYmd, p.vence);
-    if (left < 0) out.push({ nivel: "alta", area: "azure", mensaje: `El PAT de ${p.organizacion} venció (${p.vence}).`, accion: `Crear PAT nuevo (Full access, 90 días) y: npm run linky -- azure connect --org ${p.organizacion} --expires <fecha>` });
-    else if (left <= 7) out.push({ nivel: "media", area: "azure", mensaje: `El PAT de ${p.organizacion} vence en ${left} día(s) (${p.vence}).`, accion: `Crear PAT nuevo (Full access, 90 días) y: npm run linky -- azure connect --org ${p.organizacion} --expires <fecha>` });
+    if (left < 0) out.push({ nivel: "alta", area: "azure", mensaje: `El PAT de ${p.organizacion} venció (${p.vence}).`, accion: renew(p.organizacion) });
+    else if (left <= 7) out.push({ nivel: "media", area: "azure", mensaje: `El PAT de ${p.organizacion} vence en ${left} día(s) (${p.vence}).`, accion: renew(p.organizacion) });
   }
   const limit = input.diasEstancada ?? 7;
   for (const t of input.tareasEnCurso) {

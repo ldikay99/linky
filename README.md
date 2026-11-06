@@ -113,11 +113,9 @@ Para corregir: `ripor preview --update <id>` (muestra antes/después). Para borr
 ## Para asistentes de IA
 
 **Recomendado: MCP.** Linky expone sus herramientas por el Model Context Protocol, así tu asistente las usa con
-parámetros tipados en vez de componer comandos:
-
-```bash
-npm run linky -- mcp-config     # imprime la configuración con las rutas de TU equipo; pégala en tu cliente MCP
-```
+parámetros tipados en vez de componer comandos. **Ya viene configurado en el repo** (`.mcp.json` y `.vscode/mcp.json`):
+al abrir la carpeta, tu asistente detecta el servidor `linky` y solo hay que aprobarlo una vez (tu IA puede hacerlo).
+Si tu cliente no lee esa configuración, `npm run linky -- mcp-config` imprime la configuración para registrarlo.
 
 Las escrituras (`ripor_apply`, `azure_hours_apply`, `chat_send`, `azure_delete`) exigen `approved: true` y el hash del
 preview. Cada herramienta tiene tiempo máximo y Linky cierra todos sus procesos al terminar: no deja navegadores ni

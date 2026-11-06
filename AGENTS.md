@@ -6,8 +6,10 @@ Linky registra el día de trabajo de la persona en **Azure DevOps**, **Ripor** y
 Calendar, Gmail y (si desarrolla) sus commits/PRs. Es un CLI local + skills + servidor MCP; no usa API keys y
 funciona con el asistente de IA que la persona prefiera.
 
-- Con MCP: `npm run linky -- mcp-config` imprime la configuración; las herramientas (`linky_day`, `ripor_preview`…)
-  reemplazan a los comandos de terminal.
+- Con MCP (recomendado): el repo ya trae la configuración (`.mcp.json`, `.vscode/mcp.json`). Al abrir la carpeta, el
+  cliente detecta el servidor `linky`; si pide aprobarlo, apruébalo tú (la IA) en la configuración local del proyecto.
+  Si el cliente no lee esa configuración, ejecuta `npm run linky -- mcp-config` y regístralo tú en el cliente. La persona
+  no debe copiar ni pegar nada.
 - Sin MCP: `npm run linky -- <comando>` (salida JSON).
 - Skills: `skills/linky-azure-boards`, `linky-ripor`, `linky-calendar`, `linky-mail`, `linky-chat`, `linky-dev`.
 
@@ -19,8 +21,10 @@ créditos a Jonathan Contreras).
 
 ## Onboarding (en este orden; preguntar solo lo que falte)
 
-1. `azure connect --org <url> --primary --expires <fecha>` (PAT oculto; recomendar Full access + 90 días). Más
-   organizaciones con su propio PAT. Luego `onboarding --answers <json>` con datos REALES de la persona.
+1. `azure connect --org <url> --primary` (PAT oculto; recomendar Full access + 90 días). Más organizaciones con su
+   propio PAT. El vencimiento NO se le pregunta a la persona: Linky lo lee del correo que Azure envía al crear el token
+   (`azure expires --from-mail`), y si no hay correo lo detecta cuando el token deja de funcionar.
+   Luego `onboarding --answers <json>` con datos REALES de la persona.
 2. `google login` (una vez): habilita Chat, Calendar, Gmail y el login de Ripor con Google.
 3. `ripor login` → `ripor catalog --from-date <día ya reportado>` → `ripor setup` (proyecto de ÁREA ≠ proyectos Azure).
 4. `chat login` (chat de reporte) y `chat template` según cómo reporta su área.
@@ -55,7 +59,9 @@ créditos a Jonathan Contreras).
 
 - Pedir el token de forma segura (entrada oculta); keyring/env/session; nunca plaintext ni repo.
 - Si la persona pega un token en el chat, guardarlo con `azure connect` (vía `LINKY_AZURE_PAT_INPUT`, nunca a archivos).
-- Vencimiento **informado por la persona** (`--expires`); Linky avisa ≤7 días antes con la zona del equipo.
+- Vencimiento: se obtiene del correo de Azure ("personal access token added", fecha en formato mes/día/año) o con
+  `--expires` si la persona lo sabe. Linky avisa ≤7 días antes y si el token deja de funcionar. Explícalo simple:
+  "es la fecha en que el token deja de servir; te aviso antes para que crees otro".
 - Nunca copiar tokens, cookies ni datos personales a fixtures, git, zip, logs o al repo.
 
 ## Contribuir
