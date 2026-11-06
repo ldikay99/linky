@@ -22,6 +22,8 @@ créditos a Jonathan Contreras).
 
 ## Onboarding (en este orden; preguntar solo lo que falte)
 
+0. Si no existe `node_modules`, ejecuta `npm install` (sin eso no arrancan el CLI ni el servidor MCP).
+
 1. `azure connect --org <url> --primary` (PAT oculto; recomendar Full access + 90 días). Más organizaciones con su
    propio PAT. El vencimiento NO se le pregunta a la persona: Linky lo lee del correo que Azure envía al crear el token
    (`azure expires --from-mail`), y si no hay correo lo detecta cuando el token deja de funcionar.
@@ -36,7 +38,8 @@ créditos a Jonathan Contreras).
 
 ## Uso diario
 
-- `doctor`: estado y arreglo exacto de cada problema. Úsalo antes de diagnosticar a mano.
+- `doctor`: estado y arreglo exacto de cada problema. Úsalo antes de diagnosticar a mano. Si avisa que hay
+  cambios nuevos de Linky, propón a la persona `git pull && npm install` (arreglos y mejoras) y hazlo con su sí.
 - `alerts`: avisos proactivos (Ripor pendiente hoy/mes, PAT por vencer, Tasks estancadas, eventos sin clasificar).
 - `day [--date …] [--all] [--mail]`: todo el día en una llamada.
 - `ripor month [--suggest]`: días laborables pendientes del mes; `ripor preview --auto --date …` para cada uno.
