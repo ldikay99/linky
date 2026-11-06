@@ -160,6 +160,13 @@ Título con verbo + objeto concreto (como sus Tasks hermanas), descripción brev
 estado correcto (planeación / en curso / entregado). Sin fechas, sin inventar trabajo. Preview antes/después y
 aprobación.
 
+## Actualizar un item existente
+
+Con `workItemId`, Linky **suma** las horas del día a las que ya tiene la Task (el preview muestra `antes → después`),
+**no toca la descripción** (salvo que la actividad traiga `System.Description` explícita, y el preview lo advierte) y
+deja el resumen y la evidencia del día como comentario. El cambio lleva la revisión leída en el preview: si alguien
+modificó el item entretanto, Azure lo rechaza y no se escribe nada. `stateOnly: true` solo cambia el estado.
+
 ## Crear Tasks (campos del proceso)
 
 Al crear, Linky hereda **Iteración y Área de la HU padre**, respeta los defaults del proceso y, para campos

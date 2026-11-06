@@ -25,6 +25,13 @@ describe("horas reales (propuesta)", () => {
     expect(by[9]).toBe(2);
   });
 
+  it("el redondeo nunca supera la jornada", () => {
+    const p = proposeHours({ dateYmd: "d", jornada: 8.5, yaRegistradas: 8, reunionesConfirmadas: 0, tasks: [task(1, 1), task(2, 1), task(3, 1), task(4, 1)] });
+    expect(p.tareas.reduce((s, t) => s + t.propuesta, 0)).toBe(0.5);
+    const q = proposeHours({ dateYmd: "d", jornada: 8.5, yaRegistradas: 0, reunionesConfirmadas: 0, tasks: [task(1, 1), task(2, 1), task(3, 1)] });
+    expect(q.tareas.reduce((s, t) => s + t.propuesta, 0)).toBe(8.5);
+  });
+
   it("no inventa: sin Tasks del día avisa; jornada completa no propone", () => {
     expect(proposeHours({ dateYmd: "d", jornada: 8.5, yaRegistradas: 0, reunionesConfirmadas: 0, tasks: [] }).avisos.join(" ")).toMatch(/preguntar a la persona/);
     expect(proposeHours({ dateYmd: "d", jornada: 8.5, yaRegistradas: 8.5, reunionesConfirmadas: 0, tasks: [task(1, 2)] }).tareas).toEqual([]);

@@ -70,8 +70,9 @@ export const TOOLS: ToolDef[] = [
       transporte: str("Transporte del día si cambia (label exacto)."),
       update: str("ID del reporte a editar."),
       under_hours: str("Motivo de jornada menor pedida explícitamente por la persona (requiere hours)."),
+      trabajo_extra: bool("Fin de semana o festivo que la persona trabajó y PIDIÓ reportar (requiere hours; tope una jornada)."),
     },
-    toArgs: (p) => build(["ripor", "preview"], p, { date: "date", auto: "auto", notes: "notes", evidence: "evidence", hours: "hours", sustained: "sustained", transporte: "transporte", update: "update", under_hours: "under-hours" }),
+    toArgs: (p) => build(["ripor", "preview"], p, { date: "date", auto: "auto", notes: "notes", evidence: "evidence", hours: "hours", sustained: "sustained", transporte: "transporte", update: "update", under_hours: "under-hours", trabajo_extra: "trabajo-extra" }),
   },
   {
     name: "ripor_apply",

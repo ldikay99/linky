@@ -145,6 +145,15 @@ describe("descripción breve Ripor", () => {
     expect(evaluateRiporPolicy({ ...base, draft: draft("y".repeat(120)) }).ok).toBe(true);
     expect(evaluateRiporPolicy({ ...base, profile: { ...profile, descriptionMaxChars: 100 }, draft: draft("y".repeat(120)) }).ok).toBe(false);
   });
+
+  it("fin de semana: bloqueado salvo trabajo extra que la persona pidió, con tope de una jornada", () => {
+    const sabado = { ...base, dateYmd: "2026-11-07", coverageProof: { ...base.coverageProof, sustainedActivityHours: 4 } };
+    const d = { ...draft("Se atendió el despliegue programado del fin de semana con el equipo de soporte."), dateYmd: "2026-11-07", hours: 4 };
+    expect(evaluateRiporPolicy({ ...sabado, draft: d }).ok).toBe(false);
+    expect(evaluateRiporPolicy({ ...sabado, draft: { ...d, nonWorkdayConfirmed: true } }).ok).toBe(true);
+    const largo = { ...d, hours: 10, nonWorkdayConfirmed: true };
+    expect(evaluateRiporPolicy({ ...sabado, coverageProof: { ...base.coverageProof, sustainedActivityHours: 10 }, draft: largo }).ok).toBe(false);
+  });
 });
 
 describe("campos obligatorios al crear Task", async () => {

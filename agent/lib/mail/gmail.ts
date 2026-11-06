@@ -5,6 +5,7 @@
 import { openSharedBrowser, safeBrowserError } from "../browser/shared.js";
 import { hasGoogleSession } from "../chat/browser.js";
 import { zonedToUtc } from "../calendar/ics.js";
+import { workTimeZone } from "../planning/schedule.js";
 
 export type MailBox = "sent" | "received" | "all";
 
@@ -42,7 +43,7 @@ export function gmailTitleYmd(title: string): string | undefined {
 }
 
 export async function gmailDay(input: { dateYmd: string; box?: MailBox; timeZone?: string; dataDir?: string }): Promise<MailItem[]> {
-  const tz = input.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const tz = input.timeZone ?? workTimeZone();
   const query = gmailDayQuery(input.dateYmd, input.box ?? "sent", tz);
   const context = await openSharedBrowser({ headless: true, dataDir: input.dataDir });
   try {

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { AzureClient } from "../azure/client.js";
 import { linkyClientKeyMarker, prepareLocalImageAttachment } from "../azure/attachments.js";
 import { inferFromSiblings, pickWritableFields } from "../azure/fields.js";
@@ -94,29 +95,52 @@ export async function previewDayChanges(
     }
 
     if (act.workItemId) {
-      const clientKey = buildClientKey(["update", plan.date, act.id, act.workItemId]);
-      const descriptionHtml = `<div><p>${escapeHtml(act.shortDescription)}</p><pre>${escapeHtml(evidenceBlock)}${escapeHtml(mention)}</pre>${linkyClientKeyMarker(clientKey)}</div>`;
-      const explicitDescription = act.fields?.["System.Description"];
-      const desired = {
-        ...baseDesired,
-        ...(act.fields ?? {}),
-        "System.Description":
-          typeof explicitDescription === "string" ? `${explicitDescription}${linkyClientKeyMarker(clientKey)}` : descriptionHtml,
-        "System.History": typeof act.fields?.["System.History"] === "string" ? act.fields["System.History"] : escapeHtml(act.shortDescription),
-      };
-      const picked = pickWritableFields(meta, desired);
-      if (act.stateOnly) summary.push(`#${act.workItemId}: solo cambio de estado (no se reescriben campos).`);
-      else for (const s of picked.skipped) summary.push(`Omitido en #${act.workItemId}: ${s}`);
-      if (!act.stateOnly) changes.push({
-        op: "update",
-        workItemId: act.workItemId,
-        clientKey,
-        // El comentario ya va en System.History dentro de los campos.
-        fields: picked.applied,
-        attachments: attachmentPlans.length ? attachmentPlans : undefined,
-        expectedRev: act.expectedRev,
-      });
-      if (!act.stateOnly) summary.push(`Actualizar #${act.workItemId} (${typeName}): ${act.title}`);
+      const scope = `${profile.azure.organizationUrl}/${profile.azure.project}`;
+      if (act.stateOnly) {
+        summary.push(`#${act.workItemId}: solo cambio de estado (no se reescriben campos).`);
+      } else {
+        // Leer el item: las horas se SUMAN a las que ya tiene y la revisión leída protege contra cambios ajenos.
+        let current: WorkItem | undefined;
+        try {
+          current = await client.getWorkItem(act.workItemId);
+        } catch (e) {
+          summary.push(`No se pudo leer #${act.workItemId}: ${(e as Error).message}`);
+          continue;
+        }
+        const desired: Record<string, unknown> = { ...baseDesired, ...(act.fields ?? {}) };
+        const completedRef = "Microsoft.VSTS.Scheduling.CompletedWork";
+        if (hoursActual != null && act.fields?.[completedRef] === undefined) {
+          const before = Number(current.fields[completedRef] ?? 0) || 0;
+          desired[completedRef] = Number((before + hoursActual).toFixed(2));
+          summary.push(`#${act.workItemId}: horas completadas ${before} → ${desired[completedRef]} (+${Number(hoursActual.toFixed(2))}).`);
+        }
+        // La descripción existente NO se toca salvo que la actividad traiga una explícita; el resumen y la
+        // evidencia del día van como comentario.
+        if (typeof act.fields?.["System.Description"] !== "string") delete desired["System.Description"];
+        else summary.push(`#${act.workItemId}: se REEMPLAZA la descripción por la indicada.`);
+        if (typeof desired["System.History"] !== "string") {
+          desired["System.History"] = `<div>${escapeHtml(act.shortDescription)}</div>${
+            evidenceBlock || mention ? `<pre>${escapeHtml(evidenceBlock)}${escapeHtml(mention)}</pre>` : ""
+          }`;
+        }
+        const picked = pickWritableFields(meta, desired);
+        for (const s of picked.skipped) summary.push(`Omitido en #${act.workItemId}: ${s}`);
+        const contentKey = createHash("sha256").update(JSON.stringify(picked.applied)).digest("hex").slice(0, 12);
+        changes.push({
+          op: "update",
+          workItemId: act.workItemId,
+          clientKey: buildClientKey(["update", plan.date, scope, act.workItemId, contentKey]),
+          // El comentario ya va en System.History dentro de los campos.
+          fields: picked.applied,
+          attachments: attachmentPlans.length ? attachmentPlans : undefined,
+          expectedRev: act.expectedRev ?? current.rev,
+        });
+        summary.push(
+          `Actualizar #${act.workItemId} (${typeName}): ${act.title} — campos: ${Object.keys(picked.applied)
+            .filter((k) => k !== "System.History")
+            .join(", ") || "(ninguno)"} + comentario.`,
+        );
+      }
 
       const intent = options.intents?.[act.id];
       if (intent) {
@@ -135,14 +159,13 @@ export async function previewDayChanges(
               changes.push({
                 op: "transition",
                 workItemId: act.workItemId,
-                clientKey: buildClientKey(["transition", plan.date, act.id, act.workItemId, resolved.state]),
+                clientKey: buildClientKey(["transition", plan.date, scope, act.workItemId, resolved.state]),
                 toState: resolved.state,
                 comment: undefined,
                 intent: "cerrado",
                 workItemTypeHint: typeName,
                 userExplicitCloseIntent: true,
                 explicitCloseApproved: true,
-                expectedRev: act.expectedRev,
               });
               summary.push(`Cerrar #${act.workItemId} → ${resolved.state} (intención+aprobación separada)`);
             }
@@ -161,12 +184,11 @@ export async function previewDayChanges(
               changes.push({
                 op: "transition",
                 workItemId: act.workItemId,
-                clientKey: buildClientKey(["transition", plan.date, act.id, act.workItemId, resolved.state]),
+                clientKey: buildClientKey(["transition", plan.date, scope, act.workItemId, resolved.state]),
                 toState: resolved.state,
                 comment: undefined,
                 intent,
                 workItemTypeHint: typeName,
-                expectedRev: act.expectedRev,
               });
               summary.push(`Transicionar #${act.workItemId} → ${resolved.state} (${resolved.reason})`);
               if (!canTransition(meta, undefined, resolved.state) && meta.transitions.length) {
@@ -204,7 +226,15 @@ export async function previewDayChanges(
         }
       }
 
-      const clientKey = buildClientKey(["create", plan.date, act.id, act.title]);
+      // Organización/proyecto y HU padre en la clave: el mismo título bajo otra HU u otra org es otra Task.
+      const clientKey = buildClientKey([
+        "create",
+        plan.date,
+        `${profile.azure.organizationUrl}/${profile.azure.project}`,
+        act.parentHuId,
+        act.id,
+        act.title,
+      ]);
       const descriptionHtml = `<div><p>${escapeHtml(act.shortDescription)}</p><pre>${escapeHtml(evidenceBlock)}${escapeHtml(mention)}</pre>${linkyClientKeyMarker(clientKey)}</div>`;
       const title =
         profile.workContext.titleConvention && act.kind === "planned"

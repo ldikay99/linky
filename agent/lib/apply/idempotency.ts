@@ -14,6 +14,8 @@ export type JournalRecord = {
   updatedAt: string;
   previewSnapshotHash: string;
   note?: string;
+  /** Qué se esperaba escribir en un item existente: permite reconciliar updates y transiciones leyéndolo. */
+  target?: { workItemId: number; fields?: Record<string, unknown>; toState?: string };
 };
 
 type Store = { records: JournalRecord[] };
@@ -64,6 +66,7 @@ export async function beginPending(args: {
   key: string;
   action: string;
   previewSnapshotHash: string;
+  target?: JournalRecord["target"];
   dataDir?: string;
 }): Promise<JournalRecord> {
   const existing = await getJournal(args.key, args.dataDir);
@@ -84,6 +87,7 @@ export async function beginPending(args: {
     at: existing?.at ?? now,
     updatedAt: now,
     previewSnapshotHash: args.previewSnapshotHash,
+    target: args.target,
   };
   await writeJournal(rec, args.dataDir);
   return rec;
@@ -156,7 +160,9 @@ export async function markReconciled(key: string, workItemId: number, dataDir?: 
 export function isUncertainError(err: unknown): boolean {
   const msg = String((err as Error)?.message || err);
   return (
-    /SIMULATED_RESPONSE_LOSS|timeout|ECONNRESET|network|fetch failed|aborted|UND_ERR/i.test(msg) ||
+    /SIMULATED_RESPONSE_LOSS|time-?out|ECONNRESET|socket|network|fetch failed|aborted|terminated|UND_ERR/i.test(msg) ||
+    // 5xx: el servidor pudo haber escrito antes de fallar. JSON inválido: la respuesta llegó cortada.
+    /HTTP 5\d\d|Unexpected (end|token)|is not valid JSON|JSON\.parse/i.test(msg) ||
     /respuesta falló|uncertain|unknown/i.test(msg)
   );
 }

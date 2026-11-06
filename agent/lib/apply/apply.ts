@@ -84,6 +84,12 @@ export async function applyPreview(
         key: change.clientKey,
         action: change.op,
         previewSnapshotHash: preview.snapshotHash,
+        target:
+          change.op === "update"
+            ? { workItemId: change.workItemId, fields: change.fields }
+            : change.op === "transition"
+              ? { workItemId: change.workItemId, toState: change.toState }
+              : undefined,
         dataDir: options.dataDir,
       });
     } catch (e) {
@@ -166,12 +172,38 @@ export async function applyPreview(
   return result;
 }
 
-/** Reconcilia un clientKey buscando el marcador en Description vía WIQL/mock. */
+const sameValue = (a: unknown, b: unknown) =>
+  typeof a === "number" || typeof b === "number" ? Number(a) === Number(b) : String(a ?? "") === String(b ?? "");
+
+/**
+ * Reconcilia un clientKey incierto.
+ * - Creación: busca el marcador en la descripción (WIQL/mock).
+ * - Update/transición: lee el item y compara con lo que se esperaba escribir. Si ya está, queda reconciliado;
+ *   si no, se marca fallido (reintentar es seguro: el update lleva control de revisión y el estado es idempotente).
+ */
 export async function reconcileClientKey(
   client: AzureClient,
   clientKey: string,
   dataDir?: string,
 ): Promise<{ workItemId: number | null; status: string }> {
+  const journal0 = await getJournal(clientKey, dataDir);
+  const target = journal0?.target;
+  if (target) {
+    const item = await client.getWorkItem(target.workItemId);
+    const applied = target.toState
+      ? item.fields["System.State"] === target.toState
+      : Object.entries(target.fields ?? {})
+          .filter(([k]) => k !== "System.History")
+          .every(([k, v]) => sameValue(item.fields[k], v));
+    if (applied) {
+      await markReconciled(clientKey, target.workItemId, dataDir);
+      return { workItemId: target.workItemId, status: "reconciled" };
+    }
+    if (journal0.status === "unknown" || journal0.status === "pending") {
+      await markFailed(clientKey, "Reconciliado: el cambio no está en Azure; se puede generar un preview nuevo.", dataDir);
+    }
+    return { workItemId: target.workItemId, status: "not_applied_safe_to_retry" };
+  }
   const ids = await client.queryByClientKeyMarker(clientKey);
   if (ids.length === 1) {
     await markReconciled(clientKey, ids[0], dataDir);

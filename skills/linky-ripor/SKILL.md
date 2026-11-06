@@ -36,7 +36,8 @@ Transporte (valores oficiales del formulario): 🚗 Vehículo particular · 🏍
 
 ## Registro diario
 
-1. Fecha = **hoy en el dispositivo** (no reportar fechas futuras; fin de semana bloqueado).
+1. Fecha = **hoy en Colombia** (aunque el equipo esté en otra zona; `LINKY_TZ` la cambia). No reportar fechas
+   futuras; fines de semana y festivos bloqueados salvo trabajo extra que la persona pida (ver abajo).
 2. `npm run linky -- ripor list` → ver si ya hay reporte hoy (no duplicar; si existe y hay que corregir, usar update).
 3. Reunir lo hecho: `npm run linky -- azure activity --date <día>` (organización principal; `--all` si trabaja en varias). Usar el día que el usuario indique (p. ej. "con lo de ayer").
 4. Redactar **descripción breve** en pasado que resuma esas tareas: **50 a 500 caracteres** (Ripor exige mínimo 50). Sin inventar ni mezclar planes.
@@ -56,6 +57,8 @@ Transporte (valores oficiales del formulario): 🚗 Vehículo particular · 🏍
    ```bash
    npm run linky -- ripor apply --preview <out> --approve --by <usuario> --snapshot <hash>
    ```
+   `--snapshot` es obligatorio: es el hash del preview que la persona aprobó (si se generó otro preview después,
+   no coincide y no se aplica nada).
 
 ## Mes completo y festivos
 
@@ -66,7 +69,9 @@ npm run linky -- ripor month [--month YYYY-MM] [--suggest]
 - Laborable = lunes a viernes que no es festivo de Colombia (Ley Emiliani, calculados sin red) ni festivo extra
   configurado (`extraHolidays` en el perfil). Sábados, domingos y festivos **no se exigen ni se llenan**; si alguien
   reportó horas ahí aparecen como `extra` y se respetan.
-- Ripor bloquea crear o editar en festivos y fines de semana.
+- Linky bloquea crear o editar en festivos y fines de semana. Si la persona **trabajó** ese día y **pide**
+  reportarlo: `ripor preview --date <día> --trabajo-extra --hours <las que indicó>` (tope de una jornada completa).
+  Nunca proponerlo por iniciativa propia.
 - `--suggest` propone el reporte de cada día pendiente desde Azure; para cada uno: `ripor preview --auto --date <día>`.
 
 ## Sin fechas en la descripción

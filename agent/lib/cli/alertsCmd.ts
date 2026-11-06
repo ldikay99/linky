@@ -15,6 +15,7 @@ import { holidayName } from "../ripor/holidays.js";
 import { loadRiporJournal, riporJournalBlocksMutations } from "../ripor/journal.js";
 import { classifyMonth, monthDays } from "../ripor/month.js";
 import { loadRiporProfile } from "../ripor/profileStore.js";
+import { workTimeZone } from "../planning/schedule.js";
 import { expectedHoursForDate, isWorkday } from "../ripor/schedule.js";
 import { resolveAzureAccess, whoAmI } from "./azureCmd.js";
 import { applyPatExpiriesFromMail } from "./patMailCmd.js";
@@ -24,7 +25,7 @@ type Argv = ReturnType<typeof argvHelpers>;
 
 export async function runAlerts(a: Argv, dataDir?: string): Promise<void> {
   const today = todayLocalYmd();
-  const now = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());
+  const now = new Intl.DateTimeFormat("en-GB", { timeZone: workTimeZone(), hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());
   const errores: Record<string, string> = {};
   const short = (e: unknown) => String((e as Error)?.message ?? e).split("\n")[0].slice(0, 160);
   const rp = await loadRiporProfile(dataDir);
