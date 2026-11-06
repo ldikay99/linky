@@ -63,6 +63,17 @@ Preguntar y guardar (sin defaults inventados de proyecto):
 7. Convención de títulos (opcional configurable)
 8. PAT: vencimiento user-reported (90 días recomendado) + tz dispositivo; Full access recomendado con ack (mínimo Work Items R/W)
 
+## Dónde colgar las Tasks
+
+```bash
+npm run linky -- azure hus      # HU abiertas de sus sprints, con cuántas Tasks suyas tiene cada una y quién la creó
+```
+
+Si la persona NO crea HU (política `scrum_or_third_party_only`), toda Task va bajo una de estas HU; nunca crear una
+HU ni colgar una Task sin padre. Elegir la HU por el tema del trabajo (el repo, el componente, Tasks previas de la
+persona en esa HU) y **confirmarla con la persona**. Copiar el estilo de título de sus Tasks anteriores en esa HU
+(p. ej. "Verbo + objeto - Componente"), en pasado o infinitivo, sin fechas.
+
 ## Crear Tasks (campos del proceso)
 
 Al crear, Linky hereda **Iteración y Área de la HU padre**, respeta los defaults del proceso y, para campos
