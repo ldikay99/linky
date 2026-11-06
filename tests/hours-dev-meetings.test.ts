@@ -112,3 +112,26 @@ describe("avisos proactivos", async () => {
     expect(a[0].nivel).toBe("alta");
   });
 });
+
+describe("HU donde colgar Tasks", async () => {
+  const { candidateParentHus } = await import("../agent/lib/azure/hus.js");
+  it("lista HU abiertas de los sprints de la persona, con sus Tasks primero; excluye cerradas", async () => {
+    const json = (b: unknown) => new Response(JSON.stringify(b), { headers: { "content-type": "application/json" } });
+    let wiqlCalls = 0;
+    const f = (async (input: string | URL, init?: RequestInit) => {
+      const u = String(input);
+      if (u.includes("/_apis/wit/wiql")) return json({ workItems: wiqlCalls++ === 0 ? [{ id: 10 }, { id: 11 }] : [{ id: 100 }, { id: 101 }, { id: 102 }] });
+      if (u.includes("workitemsbatch")) {
+        const ids = JSON.parse(String(init?.body)).ids as number[];
+        if (ids.includes(10)) return json({ value: [{ id: 10, fields: { "System.Parent": 100, "System.IterationPath": "P\\S18" } }, { id: 11, fields: { "System.Parent": 100, "System.IterationPath": "P\\S18" } }] });
+        const hu = (id: number, state: string) => ({ id, fields: { "System.Title": `HU ${id}`, "System.State": state, "System.IterationPath": "P\\S18", "System.TeamProject": "P", "System.CreatedBy": { displayName: "Líder Demo" }, "System.WorkItemType": "User Story" } });
+        return json({ value: [hu(100, "En Curso"), hu(101, "Nueva"), hu(102, "Cerrada")] });
+      }
+      if (u.includes("/states")) return json({ value: [{ name: "Nueva", category: "Proposed" }, { name: "En Curso", category: "InProgress" }, { name: "Cerrada", category: "Completed" }] });
+      return new Response("x", { status: 404 });
+    }) as typeof fetch;
+    const hus = await candidateParentHus({ organizationUrl: "https://dev.azure.com/Org", auth: { pat: "synthetic-pat-x" }, fetchImpl: f });
+    expect(hus.map((h) => [h.id, h.tusTasks])).toEqual([[100, 2], [101, 0]]);
+    expect(hus[0]).toMatchObject({ sprint: "S18", creadaPor: "Líder Demo", url: "https://dev.azure.com/Org/P/_workitems/edit/100" });
+  });
+});

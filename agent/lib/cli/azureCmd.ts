@@ -162,6 +162,18 @@ export async function runAzureCommand(sub: string | undefined, a: Argv, dataDir?
     return;
   }
 
+  if (sub === "hus") {
+    const { candidateParentHus } = await import("../azure/hus.js");
+    const access = await resolveAzureAccess({ org: orgArg, dataDir });
+    const hus = await candidateParentHus({ organizationUrl: access.organizationUrl, auth: access.auth, sinceDays: Number(a.arg("--days") ?? 45) });
+    print({
+      organizacion: access.organizationUrl,
+      hus,
+      nota: "Padres válidos para colgar Tasks. Si la persona no crea HU (las crea el scrum), elegir una de estas; nunca crear HU.",
+    });
+    return;
+  }
+
   if (sub === "hours") {
     const { runAzureHours } = await import("./hoursCmd.js");
     await runAzureHours(a, dataDir);
@@ -212,12 +224,13 @@ export async function runAzureCommand(sub: string | undefined, a: Argv, dataDir?
     return;
   }
 
-  console.log(`linky azure <connect|login|orgs|use|expires|logout|activity|hours|delete>
+  console.log(`linky azure <connect|login|orgs|use|expires|logout|activity|hus|hours|delete>
   connect --org https://dev.azure.com/<org> [--primary]   PAT (preferido), entrada oculta
   login   [--org …] [--primary]                           sesión web (navegador visible, una vez)
   orgs                                                    organizaciones conectadas y cuál es la principal
   use     --org …                                         cambiar la principal
   activity [--date YYYY-MM-DD] [--org … | --all]          lo que hiciste ese día
+  hus     [--org …] [--days 45]                         HU abiertas donde colgar Tasks (no se crean HU)
   hours   [--date …] [--set id=h,…] [--meetings-task <id>]  propuesta de horas reales por Task (preview)
           --apply --approve --snapshot <hash>             registra las horas aprobadas
   delete  --id <n> [--org …] [--approve]                  a la papelera de Azure (preview sin --approve)`);
