@@ -98,7 +98,7 @@ export async function previewDayChanges(
       const desired = {
         ...baseDesired,
         "System.Description": descriptionHtml,
-        "System.History": `Linky ${plan.date}: ${act.shortDescription}`,
+        "System.History": `Linky: ${act.shortDescription}`,
       };
       const picked = pickWritableFields(meta, desired);
       for (const s of picked.skipped) summary.push(`Omitido en #${act.workItemId}: ${s}`);

@@ -71,6 +71,8 @@ export type RiporProfile = {
   /** Catálogo de transportes (formValue = valor medio_transporte) para override diario. */
   transportOptions?: RiporTransportOption[];
   setupComplete: boolean;
+  /** Festivos extra (YYYY-MM-DD) además de los de Colombia, p. ej. días de la empresa. */
+  extraHolidays?: string[];
   /** Tope de la descripción breve (default 500; Ripor exige mínimo 50). */
   descriptionMaxChars?: number;
   notes?: string[];

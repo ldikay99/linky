@@ -1,3 +1,4 @@
+import { trackForExit } from "./shared.js";
 /**
  * Abre Chrome/Edge INSTALADO en modo visible para que la persona inicie sesión.
  * Contexto efímero: no se escribe perfil ni cookies en disco; quien llama copia
@@ -28,6 +29,8 @@ export async function launchVisibleBrowser(opts?: { channel?: string }): Promise
         ignoreDefaultArgs: ["--enable-automation"],
         args: ["--disable-blink-features=AutomationControlled"],
       });
+      const untrack = trackForExit(browser);
+      browser.on("disconnected", untrack);
       const context = await browser.newContext({ viewport: null });
       const page = await context.newPage();
       return { browser, context, page };

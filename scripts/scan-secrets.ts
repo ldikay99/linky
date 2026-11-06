@@ -37,6 +37,7 @@ const ALLOW_PASSWORD_URL_FIXTURE = new Set([
   // Tests that assert rejection of credentialed URLs (fixtures only).
   "tests/orgUrl.test.ts",
   "tests/ripor-policy.test.ts",
+  "tests/hours-dev-meetings.test.ts",
 ]);
 
 async function main() {
@@ -52,6 +53,11 @@ async function main() {
       continue;
     }
     const rel = path.relative(ROOT, f).split(path.sep).join("/");
+    // Caracteres de control en código/docs (escapes rotos): corrompen regex y strings sin que se note.
+    if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(text)) {
+      hits++;
+      summary.push({ file: rel, name: "control-char" });
+    }
     for (const { name, re } of PATTERNS) {
       if (re.test(text)) {
         if (name === "password-url" && ALLOW_PASSWORD_URL_FIXTURE.has(rel)) continue;

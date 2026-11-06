@@ -88,7 +88,7 @@ export async function runAzureCommand(sub: string | undefined, a: Argv, dataDir?
     const user = await whoAmI(organizationUrl, { pat });
     await saveOrgPat(store, organizationUrl, pat);
     const reg = await registerAzureOrg(
-      { organizationUrl, auth: "pat", label: a.arg("--label") },
+      { organizationUrl, auth: "pat", label: a.arg("--label"), expiresOn: a.arg("--expires") },
       { primary: a.has("--primary"), dataDir },
     );
     print({ ok: true, organizationUrl, user, primary: reg.primary, backend: store.backend });
@@ -103,6 +103,17 @@ export async function runAzureCommand(sub: string | undefined, a: Argv, dataDir?
       { primary: a.has("--primary"), dataDir },
     );
     print({ ok: true, organizationUrl: session.organizationUrl, user: session.userDisplayName, primary: reg.primary });
+    return;
+  }
+
+  if (sub === "expires") {
+    const date = a.arg("--date");
+    if (!orgArg || !date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("azure expires --org https://dev.azure.com/<org> --date YYYY-MM-DD");
+    const reg = await loadAzureOrgs(dataDir);
+    const entry = reg.orgs.find((o) => orgKey(o.organizationUrl) === orgKey(orgArg));
+    if (!entry) throw new Error(`Organización no conectada: ${orgArg}`);
+    const next = await registerAzureOrg({ ...entry, expiresOn: date }, { primary: reg.primary === entry.organizationUrl, dataDir });
+    print({ ok: true, orgs: next.orgs.map((o) => ({ organizacion: o.organizationUrl, vence: o.expiresOn ?? "(sin dato)" })) });
     return;
   }
 
@@ -133,6 +144,12 @@ export async function runAzureCommand(sub: string | undefined, a: Argv, dataDir?
     await clearAzureWebSession(store, orgArg);
     if (orgArg && store.delete) await store.delete("linky-azure-devops", `pat:${orgKey(orgArg)}`);
     print({ ok: true, message: `Credenciales locales eliminadas${orgArg ? ` para ${orgArg}` : " (sesión web)"}. Revoca el PAT en Azure si ya no lo usas.` });
+    return;
+  }
+
+  if (sub === "hours") {
+    const { runAzureHours } = await import("./hoursCmd.js");
+    await runAzureHours(a, dataDir);
     return;
   }
 
@@ -180,12 +197,14 @@ export async function runAzureCommand(sub: string | undefined, a: Argv, dataDir?
     return;
   }
 
-  console.log(`linky azure <connect|login|orgs|use|logout|activity|delete>
+  console.log(`linky azure <connect|login|orgs|use|expires|logout|activity|hours|delete>
   connect --org https://dev.azure.com/<org> [--primary]   PAT (preferido), entrada oculta
   login   [--org …] [--primary]                           sesión web (navegador visible, una vez)
   orgs                                                    organizaciones conectadas y cuál es la principal
   use     --org …                                         cambiar la principal
   activity [--date YYYY-MM-DD] [--org … | --all]          lo que hiciste ese día
+  hours   [--date …] [--set id=h,…] [--meetings-task <id>]  propuesta de horas reales por Task (preview)
+          --apply --approve --snapshot <hash>             registra las horas aprobadas
   delete  --id <n> [--org …] [--approve]                  a la papelera de Azure (preview sin --approve)`);
   if (sub) process.exitCode = 1;
 }

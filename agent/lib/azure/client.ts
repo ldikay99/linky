@@ -1,7 +1,7 @@
 /** Cliente Azure DevOps REST — interfaz + HTTP + mock. Sin escrituras reales en tests. */
 import type { FieldMeta, PermissionProbeResult, ProcessMeta, StateMeta } from "../types.js";
 import { SAFE_FETCH_REDIRECT, validateOrganizationUrl } from "../security/orgUrl.js";
-import { attachmentRelationPatch } from "./attachments.js";
+import { attachmentRelationPatch, clientKeyToken } from "./attachments.js";
 
 export type AzureAuth = {
   organizationUrl: string;
@@ -205,7 +205,7 @@ export function createHttpAzureClient(auth: AzureAuth, fetchImpl: typeof fetch =
     },
 
     async queryByClientKeyMarker(clientKey) {
-      const marker = `linky:clientKey=${clientKey}`;
+      const marker = `linky:k=${clientKeyToken(clientKey)}`;
       const wiql = {
         query: `SELECT [System.Id] FROM WorkItems WHERE [System.Description] CONTAINS '${marker.replace(/'/g, "''")}'`,
       };
@@ -366,7 +366,7 @@ export function createMockAzureClient(seed?: Partial<MockAzureState>): { client:
       return { id, url, fileName };
     },
     async queryByClientKeyMarker(clientKey) {
-      const needle = `linky:clientKey=${clientKey}`;
+      const needle = `linky:k=${clientKeyToken(clientKey)}`;
       const ids: number[] = [];
       for (const [id, item] of state.items) {
         const desc = String(item.fields["System.Description"] ?? "");

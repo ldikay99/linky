@@ -4,6 +4,7 @@
  */
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { createHttpAzureClient, createMockAzureClient } from "../azure/client.js";
 import { runOnboarding, type OnboardingAnswers } from "../onboarding/wizard.js";
 import { loadProfile, profileExistsSummary } from "../profile/store.js";
@@ -34,6 +35,7 @@ import {
   argvHelpers,
   cmdRiporCatalog,
   cmdRiporList,
+  cmdRiporMonth,
   cmdRiporLogin,
   cmdRiporLogout,
   cmdRiporReconcile,
@@ -54,7 +56,10 @@ import { runCalendarCommand } from "./calendarCmd.js";
 import { runGoogleCommand } from "./googleCmd.js";
 import { runDoctor } from "./doctorCmd.js";
 import { runDay } from "./dayCmd.js";
+import { cleanupLinkyBrowsers } from "../browser/cleanup.js";
 import { runMailCommand } from "./mailCmd.js";
+import { runDevCommand } from "./devCmd.js";
+import { runAlerts } from "./alertsCmd.js";
 
 function arg(flag: string): string | undefined {
   const i = process.argv.indexOf(flag);
@@ -533,8 +538,39 @@ async function main() {
     case "day":
       await runDay(argvHelpers(), dataDir());
       break;
+    case "mcp": {
+      const { startServer } = await import("../mcp/server.js");
+      startServer();
+      return;
+    }
+    case "mcp-config": {
+      const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+      const args = [path.join(root, "node_modules", "tsx", "dist", "cli.mjs"), path.join(root, "agent", "lib", "mcp", "server.ts")];
+      console.log(
+        JSON.stringify(
+          {
+            nota: "Pega esto en la configuración MCP de tu asistente (clave mcpServers; en VS Code la clave es servers).",
+            mcpServers: { linky: { command: "node", args } },
+          },
+          null,
+          2,
+        ),
+      );
+      break;
+    }
+    case "alerts":
+      await runAlerts(argvHelpers(), dataDir());
+      break;
+    case "cleanup": {
+      const r = await cleanupLinkyBrowsers(dataDir());
+      console.log(JSON.stringify({ ...r, message: r.killed.length ? `Cerrados ${r.killed.length} proceso(s) huérfanos de Linky.` : "Sin navegadores huérfanos de Linky." }, null, 2));
+      break;
+    }
     case "google":
       await runGoogleCommand(process.argv[3], argvHelpers(), dataDir());
+      break;
+    case "dev":
+      await runDevCommand(process.argv[3], argvHelpers(), dataDir());
       break;
     case "mail":
       await runMailCommand(process.argv[3], argvHelpers(), dataDir());
@@ -560,6 +596,7 @@ async function main() {
       else if (sub === "session") await cmdRiporSession(argvHelpers(), dataDir());
       else if (sub === "catalog") await cmdRiporCatalog(argvHelpers(), dataDir());
       else if (sub === "list") await cmdRiporList(argvHelpers(), dataDir());
+      else if (sub === "month") await cmdRiporMonth(argvHelpers(), dataDir());
       else if (sub === "suggest") {
         const profile = await loadRiporProfile(dataDir());
         if (!profile?.setupComplete) throw new Error("Falta ripor setup.");
@@ -570,7 +607,7 @@ async function main() {
       else if (sub === "check") await cmdRiporUiCheck(false);
       else if (sub === "gate") await cmdRiporUiCheck(true);
       else {
-        console.log(`linky ripor <login|logout|session|catalog|setup|list|suggest|preview|apply|delete-preview|reconcile|status|check|gate>
+        console.log(`linky ripor <login|logout|session|catalog|setup|list|month|suggest|preview|apply|delete-preview|reconcile|status|check|gate>
 URL: ${RIPOR_PUBLIC_URL}
 HTTP con la sesión del usuario (keyring); navegador solo en "ripor login". --mock offline.`);
         process.exit(sub ? 1 : 0);
@@ -580,7 +617,7 @@ HTTP con la sesión del usuario (keyring); navegador solo en "ripor login". --mo
     default:
       console.log(renderBanner());
       console.log(`Linky CLI
-Comandos: welcome | doctor | day | onboarding | plan | preview | apply | reconcile | drafts | status | azure | ripor | google | chat | calendar | mail | browser
+Comandos: welcome | doctor | day | alerts | cleanup | mcp | mcp-config | onboarding | plan | preview | apply | reconcile | drafts | status | azure | ripor | google | chat | calendar | mail | dev | browser
 Flags: --data-dir --mock --secret-backend env|session --approve --by --snapshot --key
 Ripor: ripor login|catalog|setup|list|preview|apply|delete-preview|reconcile|status (URL https://ripor.co/u/horas)
 PAT: keyring OS; alternativa explícita env/session. Nunca archivo plaintext.

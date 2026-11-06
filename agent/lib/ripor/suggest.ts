@@ -7,6 +7,7 @@ import { azureReadJson } from "../azure/http.js";
 import type { DayActivityReport } from "../azure/activity.js";
 import { azureAuthHeaders, type AzureAuth } from "../azure/client.js";
 import { RIPOR_DESCRIPTION_MAX_CHARS, RIPOR_DESCRIPTION_MIN_CHARS } from "./policy.js";
+import { stripDates } from "../planning/noDates.js";
 
 export type RiporSuggestion = {
   notes: string;
@@ -30,7 +31,7 @@ export function buildRiporNotes(activity: DayActivityReport, maxChars = RIPOR_DE
     .sort((a, b) => Number(b.stateChanges.length > 0 || b.createdToday) - Number(a.stateChanges.length > 0 || a.createdToday));
   const groups = new Map<string, string[]>();
   for (const i of items) {
-    const { group, text } = splitSuffix(i.title);
+    const { group, text } = splitSuffix(stripDates(i.title));
     const key = group ?? i.project;
     groups.set(key, [...(groups.get(key) ?? []), text]);
   }

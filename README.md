@@ -19,7 +19,7 @@ Sin abrir el navegador cada día. Sin inventar horas. Con tu aprobación en cada
 
 Trabajas en **Azure DevOps**, a veces en varias organizaciones a la vez (la de tu empresa y la de un cliente o consorcio). Al final del día tienes que reportar tu jornada en **Ripor**: proyecto de área, horas exactas, una descripción breve, evidencia y medio de transporte.
 
-Linky es un **CLI con skills** que cualquier asistente de IA con acceso a terminal puede usar para hacer ese trabajo por ti:
+Linky es un **CLI con skills y servidor MCP** que cualquier asistente de IA puede usar para hacer ese trabajo por ti:
 
 - **Lee lo que hiciste** en Azure DevOps (tareas creadas, estados, horas completadas, comentarios) en todas tus organizaciones.
 - **Crea y actualiza tus Tasks** con descripción corta y evidencias, respetando quién puede crear o cerrar qué.
@@ -27,6 +27,10 @@ Linky es un **CLI con skills** que cualquier asistente de IA con acceso a termin
 - **Toma tus reuniones de Google Calendar como evidencia**: enlace de Meet, grabación, transcripción, notas y fotos adjuntas (descargables para adjuntarlas en Azure).
 - **Revisa tus correos del día** (Gmail) como evidencia de lo que enviaste.
 - **Publica tu mensaje de inicio y cierre de jornada** en el chat de Google Chat de tu equipo, con el texto que tú apruebes.
+- **Te pone al día con el mes**: detecta los días laborables sin reportar en Ripor (respetando festivos de Colombia y fines de semana) y te propone cada reporte.
+- **Propone tus horas reales en Azure** por Task, a partir de lo que hiciste y de las reuniones que confirmaste.
+- **Si desarrollas**, toma tus commits y PRs del día como evidencia (Azure Repos y GitHub).
+- **Te avisa a tiempo**: Ripor pendiente, PAT por vencer, Tasks estancadas.
 
 No es una app ni una página web: son comandos locales. Funciona igual en **Windows, macOS y Linux**, y **no necesita API keys**: lo usas con el asistente de IA que prefieras.
 
@@ -94,7 +98,10 @@ npm run linky -- ripor setup --answers ~/.linky/ripor-setup-answers.json --trans
 **5. Dile a tu asistente:** *"registra mi día en Ripor con lo que hice ayer en Azure"*. Por debajo hará algo así:
 
 ```bash
+npm run linky -- alerts                                    # qué está pendiente (hoy, el mes, PATs, Tasks)
 npm run linky -- day                                       # todo el día en una llamada: Azure, reuniones, Ripor, chat
+npm run linky -- ripor month --suggest                     # días del mes sin reportar, con propuesta para cada uno
+npm run linky -- azure hours                               # propuesta de horas reales por Task
 npm run linky -- azure activity --date 2026-11-04          # qué hiciste (usa --all para todas tus organizaciones)
 npm run linky -- ripor list                                # qué hay reportado hoy
 npm run linky -- ripor preview --auto                      # descripción, evidencia y horas sugeridas desde Azure
@@ -105,13 +112,25 @@ Para corregir: `ripor preview --update <id>` (muestra antes/después). Para borr
 
 ## Para asistentes de IA
 
-Carga las skills; contienen el flujo completo, las reglas y qué preguntar:
+**Recomendado: MCP.** Linky expone sus herramientas por el Model Context Protocol, así tu asistente las usa con
+parámetros tipados en vez de componer comandos:
+
+```bash
+npm run linky -- mcp-config     # imprime la configuración con las rutas de TU equipo; pégala en tu cliente MCP
+```
+
+Las escrituras (`ripor_apply`, `azure_hours_apply`, `chat_send`, `azure_delete`) exigen `approved: true` y el hash del
+preview. Cada herramienta tiene tiempo máximo y Linky cierra todos sus procesos al terminar: no deja navegadores ni
+procesos zombis (y `npm run linky -- cleanup` limpia si algo quedó colgado).
+
+También puedes cargar las skills; contienen el flujo completo, las reglas y qué preguntar:
 
 - [`skills/linky-azure-boards/SKILL.md`](skills/linky-azure-boards/SKILL.md): Azure DevOps.
 - [`skills/linky-ripor/SKILL.md`](skills/linky-ripor/SKILL.md): Ripor.
 - [`skills/linky-chat/SKILL.md`](skills/linky-chat/SKILL.md): Google Chat.
 - [`skills/linky-calendar/SKILL.md`](skills/linky-calendar/SKILL.md): Google Calendar.
 - [`skills/linky-mail/SKILL.md`](skills/linky-mail/SKILL.md): Gmail.
+- [`skills/linky-dev/SKILL.md`](skills/linky-dev/SKILL.md): commits y PRs (opcional).
 - [`AGENTS.md`](AGENTS.md): reglas comunes.
 
 ## Contribuir

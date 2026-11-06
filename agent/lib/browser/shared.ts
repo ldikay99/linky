@@ -27,6 +27,48 @@ async function migrateLegacyProfile(dataDir?: string): Promise<void> {
   if (!(await exists(shared)) && (await exists(legacy))) await rename(legacy, shared).catch(() => undefined);
 }
 
+type Ctx = import("playwright-core").BrowserContext;
+
+/**
+ * Registro de navegadores abiertos por ESTE proceso: si el proceso se interrumpe (Ctrl+C, kill, error no
+ * capturado), se cierran antes de salir. Así Linky nunca deja navegadores zombis.
+ */
+const openContexts = new Set<{ close(): Promise<unknown> }>();
+let exitHooksInstalled = false;
+
+async function closeAllContexts(): Promise<void> {
+  await Promise.all([...openContexts].map((c) => c.close().catch(() => undefined)));
+  openContexts.clear();
+}
+
+function installExitHooks(): void {
+  if (exitHooksInstalled) return;
+  exitHooksInstalled = true;
+  const onSignal = (code: number) => () => {
+    void closeAllContexts().finally(() => process.exit(code));
+    setTimeout(() => process.exit(code), 5_000).unref(); // no quedar colgado si el cierre falla
+  };
+  process.once("SIGINT", onSignal(130));
+  process.once("SIGTERM", onSignal(143));
+  process.once("SIGHUP", onSignal(129));
+  process.once("uncaughtException", (e) => {
+    process.stderr.write(`${String((e as Error)?.message ?? e).split("\n")[0]}\n`);
+    onSignal(1)();
+  });
+  process.once("beforeExit", () => void closeAllContexts());
+}
+
+/** Registra un navegador/contexto para cerrarlo si el proceso se interrumpe. Devuelve la función para soltarlo. */
+export function trackForExit(c: { close(): Promise<unknown> }): () => void {
+  installExitHooks();
+  openContexts.add(c);
+  return () => void openContexts.delete(c);
+}
+
+export function openBrowserCount(): number {
+  return openContexts.size;
+}
+
 export async function openSharedBrowser(opts: { headless: boolean; dataDir?: string; channel?: string }) {
   let pw: typeof import("playwright-core");
   try {
@@ -42,7 +84,8 @@ export async function openSharedBrowser(opts: { headless: boolean; dataDir?: str
   let lastError: unknown;
   for (const channel of channels) {
     try {
-      return await pw.chromium.launchPersistentContext(dir, {
+      installExitHooks();
+      const context = await pw.chromium.launchPersistentContext(dir, {
         headless: opts.headless,
         channel,
         viewport: opts.headless ? { width: 1366, height: 900 } : null,
@@ -50,10 +93,13 @@ export async function openSharedBrowser(opts: { headless: boolean; dataDir?: str
         ignoreDefaultArgs: ["--enable-automation"],
         args: ["--disable-blink-features=AutomationControlled"],
       });
+      openContexts.add(context);
+      context.on("close", () => openContexts.delete(context));
+      return context;
     } catch (e) {
       lastError = e;
       if (/ProcessSingleton|already in use|SingletonLock/i.test(String((e as Error)?.message))) {
-        throw new Error("El navegador de Linky ya está abierto (otro login en curso). Ciérralo y repite.");
+        throw new Error("El navegador de Linky ya está abierto (otro proceso lo usa). Si no hay nada en curso: npm run linky -- cleanup");
       }
     }
   }

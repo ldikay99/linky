@@ -8,6 +8,8 @@ import { readDayActivity, type DayActivityReport } from "../azure/activity.js";
 import { loadAzureOrgs } from "../azure/orgs.js";
 import { calendarDay, downloadCalendarExport } from "../calendar/export.js";
 import { gmailDay, type MailItem } from "../mail/gmail.js";
+import { loadMeetingRules } from "../calendar/meetings.js";
+import { devDay } from "./devCmd.js";
 import { loadChatConfig } from "../chat/config.js";
 import { deliveredOn, myOpenTasks, renderDayMessage, type TaskLine } from "../chat/dayMessages.js";
 import { loadRiporProfile } from "../ripor/profileStore.js";
@@ -68,7 +70,7 @@ export async function runDay(a: Argv, dataDir?: string): Promise<void> {
     let cal: ReturnType<typeof calendarDay> | undefined;
     if (!a.has("--no-calendar")) {
       try {
-        cal = calendarDay(await downloadCalendarExport({ dataDir }), dateYmd);
+        cal = calendarDay(await downloadCalendarExport({ dataDir }), dateYmd, { rules: await loadMeetingRules(dataDir) });
       } catch (e) {
         errores.calendar = short(e);
       }
@@ -83,7 +85,12 @@ export async function runDay(a: Argv, dataDir?: string): Promise<void> {
     return cal;
   })();
 
-  const [azure, riporReports, calendar] = await Promise.all([azureJob, riporJob, calendarJob]);
+  const devJob = devDay(dateYmd, dataDir).catch((e) => {
+    errores.desarrollo = short(e);
+    return undefined;
+  });
+
+  const [azure, riporReports, calendar, dev] = await Promise.all([azureJob, riporJob, calendarJob, devJob]);
 
   const expected = expectedHoursForDate(dateYmd, riporProfile?.schedule);
   const reported = riporReports?.reduce((s, r) => s + (Number.isFinite(r.hours) ? r.hours : 0), 0);
@@ -126,13 +133,22 @@ export async function runDay(a: Argv, dataDir?: string): Promise<void> {
       tareasAbiertas: azure.open.map((t) => ({ id: t.id, titulo: t.title, estado: t.state, url: t.url })),
       entregadas: azure.delivered.map((t) => ({ id: t.id, titulo: t.title, estado: t.state })),
     },
-    reuniones: (calendar?.events ?? []).map((e) => ({
+    // Solo confirmadas cuentan como reuniones de trabajo; las sin confirmar se preguntan.
+    reuniones: (calendar?.events ?? []).filter((e) => e.reunion !== false).map((e) => ({
       hora: e.allDay ? "todo el día" : `${e.start}-${e.end}`,
       titulo: e.title,
+      confirmada: e.reunion === true,
+      minutos: e.minutes,
       respuesta: e.myResponse,
       meet: e.meetUrl,
       evidencias: e.attachments.map((x) => ({ tipo: x.mime, titulo: x.title, url: x.url })),
     })),
+    desarrollo: dev
+      ? {
+          commits: dev.commits.map((c) => ({ repo: c.repo, commit: c.short, mensaje: c.message, url: c.url, tasks: c.workItems })),
+          prs: dev.prs.map((p) => ({ id: p.id, titulo: p.title, evento: p.event, repo: p.repo, url: p.url })),
+        }
+      : undefined,
     correosEnviados: mail ? mail.map((m) => ({ hora: m.time, asunto: m.subject, para: m.people, enlace: m.url })) : undefined,
     ripor: riporReports
       ? {

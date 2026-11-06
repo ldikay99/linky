@@ -9,6 +9,8 @@ import type {
 import { DEFAULT_RIPOR_SCHEDULE } from "./types.js";
 import { expectedHoursForDate, isWorkday } from "./schedule.js";
 import { validateEvidenceUrls } from "./evidence.js";
+import { noDatesError } from "../planning/noDates.js";
+import { holidayName } from "./holidays.js";
 
 export type PolicyResult = {
   ok: boolean;
@@ -249,6 +251,12 @@ export function evaluateRiporPolicy(input: {
     };
   }
 
+  // Festivo (Colombia + extra configurados): no se reporta, igual que fin de semana.
+  const holiday = isWorkday(input.dateYmd) ? holidayName(input.dateYmd, input.profile.extraHolidays) : undefined;
+  if (holiday) {
+    blockers.push(`Festivo (${holiday}): no se reporta en Ripor.`);
+  }
+
   // Weekend: under NO bypass
   if (!isWorkday(input.dateYmd)) {
     blockers.push(
@@ -309,6 +317,8 @@ export function evaluateRiporPolicy(input: {
   if (desc && desc.length < RIPOR_DESCRIPTION_MIN_CHARS) {
     blockers.push(`Descripción muy corta: ${desc.length} caracteres (Ripor exige mínimo ${RIPOR_DESCRIPTION_MIN_CHARS}).`);
   }
+  const dated = desc ? noDatesError(desc) : undefined;
+  if (dated) blockers.push(dated);
   const maxDesc = input.profile.descriptionMaxChars ?? RIPOR_DESCRIPTION_MAX_CHARS;
   if (desc.length > maxDesc) {
     blockers.push(`Descripción no es breve: ${desc.length} caracteres > ${maxDesc}. Resumir.`);
