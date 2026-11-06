@@ -29,7 +29,8 @@ npm run linky -- azure use --org https://dev.azure.com/<org>                    
 ```
 
 - PAT: recomendar crearlo con **Full access** y **90 días** de vigencia (Azure DevOps → User settings → Personal access tokens → New Token → organización, Expiration *Custom defined* 90 días, Scopes *Full access*). Confirmar una vez la amplitud (ack). Mínimo aceptable: Work Items Read & Write. Un PAT vale para la organización elegida al crearlo: uno por organización.
-- Anotar la fecha de vencimiento (hoy + 90 días): Linky avisa ≤7 días antes. Azure no deja leerla desde el token.
+- Vencimiento: no se le pregunta a la persona. Linky lo lee del correo que Azure envía al crear el token
+  (`azure expires --from-mail`) o se pasa con `--expires` si la persona lo sabe. Avisa ≤7 días antes.
 - Preferir que el comando pida el PAT oculto. Si el usuario lo pega en el chat, guardarlo con `azure connect` (vía `LINKY_AZURE_PAT_INPUT`, nunca en archivos) y avisar una vez que quedó en el historial; rotarlo es decisión del usuario.
 - Con la sesión conectada todo va por REST; el navegador solo se usa para el login.
 
@@ -86,6 +87,52 @@ Si la persona no crea HU, se le pide al responsable (scrum/líder) por chat, con
 3. Mensaje corto y directo, en el tono de la persona: sprint, código, título propuesto y evidencia (PRs aprobados,
    repos). Sin excusas inventadas. Validar fechas del sprint en Azure antes de mencionarlas.
 4. Mostrar el mensaje y enviarlo solo con su aprobación.
+
+## Cómo redactar HU y Tasks (cualquier área)
+
+Linky lo usan áreas de todo tipo (desarrollo, datos, QA, soporte, comercial, talento humano, administrativas…). No
+asumas que la persona programa. **Primero copia el estilo real** de su equipo: lee sus HU y Tasks anteriores
+(`azure hus`, la HU padre y sus Tasks hermanas) y usa ese formato. Las plantillas de abajo son solo el respaldo
+cuando no hay referencia; los `<valores>` se llenan con datos reales de la persona, nunca inventados.
+
+### Crear una HU (solo si su política lo permite; si no, se pide al responsable)
+
+```text
+Título:       <CÓDIGO>_<QUÉ SE LOGRA, concreto>                     # formato del equipo; código validado con `azure ceco`
+Descripción:  Como <rol que se beneficia>, necesito <qué> para <para qué / valor>.
+              Contexto: <situación actual o problema, 1–2 líneas>.
+Criterios de aceptación:
+              - <resultado verificable 1>
+              - <resultado verificable 2>
+Evidencia esperada: <entregable: informe, documento, tablero, PR, acta…>
+```
+
+Ejemplos de título por área (ilustrativos, no copiar): `<código>_INFORME MENSUAL DE ROTACIÓN DE PERSONAL POR SEDE`,
+`<código>_PLAN DE PRUEBAS DE REGRESIÓN DEL MÓDULO DE FACTURACIÓN`, `<código>_TABLERO DE SEGUIMIENTO DE PQRS POR CANAL`.
+
+### Refinar una HU existente
+
+Solo si la persona puede refinar (`huRefine`); si no, se le sugiere al responsable. Refinar = aclarar, no cambiar el
+alcance: título que diga QUÉ se logra, descripción "Como… necesito… para…", criterios de aceptación verificables,
+y quitar fechas y relleno. Mostrar antes/después y aplicar solo con aprobación.
+
+### Crear una Task (siempre bajo una HU)
+
+```text
+Título:       <Verbo en infinitivo> <objeto concreto> - <componente, cliente o frente>
+Descripción:  <qué se hizo o se hará, 1–2 frases en pasado si ya está hecha>. Evidencia: <enlace o entregable>.
+Horas:        estimación = <real si ya está hecha>; completado = <horas reales>
+```
+
+Ejemplos por área (ilustrativos): "Consolidar novedades de nómina de la quincena - Talento Humano",
+"Ejecutar pruebas de regresión del flujo de pagos - QA", "Responder solicitudes pendientes del canal de correo -
+Soporte", "Ajustar validación de adjuntos en el servicio de radicación - Desarrollo".
+
+### Refinar una Task
+
+Título con verbo + objeto concreto (como sus Tasks hermanas), descripción breve con la evidencia real, horas reales y
+estado correcto (planeación / en curso / entregado). Sin fechas, sin inventar trabajo. Preview antes/después y
+aprobación.
 
 ## Crear Tasks (campos del proceso)
 
