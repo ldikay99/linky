@@ -84,3 +84,44 @@ export async function candidateParentHus(input: {
     .sort((a, b) => b.tusTasks - a.tusTasks || b.id - a.id)
     .slice(0, 30);
 }
+
+/** "HU_080_ID_005_REFACTORIZACION…" → { codigo: "005", tipo: "ID", resto } */
+export function parseHuTitle(title: string): { numero: string; tipo: string; codigo: string; resto: string } | undefined {
+  const m = /^HU[_-]([\d.]+)_([A-Z]{2})_(\d{3})_(.*)$/.exec(title.trim());
+  return m ? { numero: m[1], tipo: m[2], codigo: m[3], resto: m[4] } : undefined;
+}
+
+/**
+ * Código de proyecto (CECO) usado en HU anteriores del mismo tema. Se valida ANTES de proponer una HU:
+ * el código depende del proyecto y de la cuenta de la persona; nunca se asume.
+ */
+export async function projectCodesForTopic(input: {
+  organizationUrl: string;
+  auth: Pick<AzureAuth, "pat" | "cookie">;
+  topic: string;
+  fetchImpl?: typeof fetch;
+}): Promise<Array<{ codigo: string; hus: Array<{ id: number; titulo: string; sprint: string; estado: string }> }>> {
+  const f = input.fetchImpl ?? fetch;
+  const h = { ...azureAuthHeaders(input.auth), accept: "application/json" };
+  const words = input.topic.split(/\s+/).filter((w) => w.length >= 3).slice(0, 4);
+  if (!words.length) throw new Error("--topic necesita al menos una palabra de 3 letras (p. ej. PQRD).");
+  const cond = words.map((w) => `[System.Title] CONTAINS '${w.replace(/'/g, "''")}'`).join(" AND ");
+  const q = await azureReadJson<{ workItems: Array<{ id: number }> }>(f, `${input.organizationUrl}/_apis/wit/wiql?api-version=7.1&$top=200`, h, {
+    query: `SELECT [System.Id] FROM WorkItems WHERE [System.WorkItemType] = 'User Story' AND ${cond} ORDER BY [System.CreatedDate] DESC`,
+  });
+  if (!q.workItems.length) return [];
+  const d = await azureReadJson<{ value: Array<{ id: number; fields: Record<string, unknown> }> }>(f, `${input.organizationUrl}/_apis/wit/workitemsbatch?api-version=7.1`, h, {
+    ids: q.workItems.slice(0, 200).map((w) => w.id),
+    fields: ["System.Title", "System.IterationPath", "System.State"],
+  });
+  const by = new Map<string, Array<{ id: number; titulo: string; sprint: string; estado: string }>>();
+  for (const w of d.value) {
+    const p = parseHuTitle(String(w.fields["System.Title"]));
+    if (!p) continue;
+    by.set(p.codigo, [
+      ...(by.get(p.codigo) ?? []),
+      { id: w.id, titulo: String(w.fields["System.Title"]), sprint: String(w.fields["System.IterationPath"]).split("\\").pop() ?? "", estado: String(w.fields["System.State"]) },
+    ]);
+  }
+  return [...by.entries()].map(([codigo, hus]) => ({ codigo, hus })).sort((a, b) => b.hus.length - a.hus.length);
+}

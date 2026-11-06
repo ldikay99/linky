@@ -162,6 +162,22 @@ export async function runAzureCommand(sub: string | undefined, a: Argv, dataDir?
     return;
   }
 
+  if (sub === "ceco") {
+    const topic = a.arg("--topic");
+    if (!topic) throw new Error('azure ceco --topic "<tema de la HU, p. ej. PQRD>"');
+    const { projectCodesForTopic } = await import("../azure/hus.js");
+    const access = await resolveAzureAccess({ org: orgArg, dataDir });
+    const codigos = await projectCodesForTopic({ organizationUrl: access.organizationUrl, auth: access.auth, topic });
+    print({
+      tema: topic,
+      codigos: codigos.map((c) => ({ codigo: c.codigo, cantidad: c.hus.length, ejemplos: c.hus.slice(0, 4) })),
+      nota: codigos.length
+        ? "Código usado en HU previas del tema. Confirmarlo con la persona: depende del proyecto y de su cuenta (p. ej. 3T vs Linktic)."
+        : "Sin HU previas del tema: preguntar a la persona el código del proyecto (CECO); no asumir.",
+    });
+    return;
+  }
+
   if (sub === "hus") {
     const { candidateParentHus } = await import("../azure/hus.js");
     const access = await resolveAzureAccess({ org: orgArg, dataDir });
@@ -224,13 +240,14 @@ export async function runAzureCommand(sub: string | undefined, a: Argv, dataDir?
     return;
   }
 
-  console.log(`linky azure <connect|login|orgs|use|expires|logout|activity|hus|hours|delete>
+  console.log(`linky azure <connect|login|orgs|use|expires|logout|activity|hus|ceco|hours|delete>
   connect --org https://dev.azure.com/<org> [--primary]   PAT (preferido), entrada oculta
   login   [--org …] [--primary]                           sesión web (navegador visible, una vez)
   orgs                                                    organizaciones conectadas y cuál es la principal
   use     --org …                                         cambiar la principal
   activity [--date YYYY-MM-DD] [--org … | --all]          lo que hiciste ese día
   hus     [--org …] [--days 45]                         HU abiertas donde colgar Tasks (no se crean HU)
+  ceco    --topic "<tema>"                              código de proyecto usado en HU previas del tema (validar antes de proponer)
   hours   [--date …] [--set id=h,…] [--meetings-task <id>]  propuesta de horas reales por Task (preview)
           --apply --approve --snapshot <hash>             registra las horas aprobadas
   delete  --id <n> [--org …] [--approve]                  a la papelera de Azure (preview sin --approve)`);
