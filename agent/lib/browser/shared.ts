@@ -69,7 +69,23 @@ export function openBrowserCount(): number {
   return openContexts.size;
 }
 
-export async function openSharedBrowser(opts: { headless: boolean; dataDir?: string; channel?: string }) {
+/**
+ * Turno del perfil dentro de este proceso: un perfil persistente solo admite un navegador a la vez, así que si
+ * dos trabajos en paralelo (p. ej. renovar Ripor y leer Calendar) lo piden, el segundo espera a que se cierre
+ * el primero en lugar de fallar. Quien abre debe cerrar (todos los usos lo hacen en `finally`).
+ */
+let profileTurn: Promise<void> = Promise.resolve();
+function waitProfileTurn(): Promise<() => void> {
+  let release!: () => void;
+  const mine = new Promise<void>((r) => (release = r));
+  const before = profileTurn;
+  profileTurn = before.then(() => mine);
+  return before.then(() => release);
+}
+
+const isProfileBusy = (e: unknown) => /ProcessSingleton|already in use|SingletonLock/i.test(String((e as Error)?.message));
+
+export async function openSharedBrowser(opts: { headless: boolean; dataDir?: string; channel?: string; busyWaitMs?: number }) {
   let pw: typeof import("playwright-core");
   try {
     pw = await import("playwright-core");
@@ -79,6 +95,30 @@ export async function openSharedBrowser(opts: { headless: boolean; dataDir?: str
   await migrateLegacyProfile(opts.dataDir);
   const dir = sharedBrowserProfileDir(opts.dataDir);
   await mkdir(dir, { recursive: true, mode: 0o700 });
+  const release = await waitProfileTurn();
+  // Otro proceso de Linky (otra IA, el MCP) puede estar usándolo: esperar un poco antes de rendirse.
+  const deadline = Date.now() + (opts.busyWaitMs ?? 45_000);
+  try {
+    for (;;) {
+      try {
+        const context = await launchShared(pw, dir, opts);
+        context.on("close", release);
+        return context;
+      } catch (e) {
+        if (!isProfileBusy(e) || Date.now() > deadline) throw e;
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+    }
+  } catch (e) {
+    release();
+    if (isProfileBusy(e)) {
+      throw new Error("El navegador de Linky ya está abierto (otro proceso lo usa). Si no hay nada en curso: npm run linky -- cleanup");
+    }
+    throw e;
+  }
+}
+
+async function launchShared(pw: typeof import("playwright-core"), dir: string, opts: { headless: boolean; channel?: string }) {
   // Chrome → Edge → Chromium de Playwright (Linux sin Chrome: `npx playwright-core install chromium`).
   const channels: Array<string | undefined> = opts.channel ? [opts.channel] : ["chrome", "msedge", undefined];
   let lastError: unknown;
@@ -98,9 +138,7 @@ export async function openSharedBrowser(opts: { headless: boolean; dataDir?: str
       return context;
     } catch (e) {
       lastError = e;
-      if (/ProcessSingleton|already in use|SingletonLock/i.test(String((e as Error)?.message))) {
-        throw new Error("El navegador de Linky ya está abierto (otro proceso lo usa). Si no hay nada en curso: npm run linky -- cleanup");
-      }
+      if (isProfileBusy(e)) throw e;
     }
   }
   throw new Error(
