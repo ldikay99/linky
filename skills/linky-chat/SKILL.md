@@ -19,11 +19,8 @@ sirve para Ripor ("Iniciar con Google").
 
 4. **Formato del área**: mostrar el formato por defecto con `npm run linky -- chat template` y preguntar a la persona
    cómo reporta su equipo. Ajustarlo, por ejemplo:
-   `chat template --inicio "Hola equipo, hoy {fecha}:
-{tareas}" --cierre "Cierre {fecha}
-Listo: {entregadas}
-Sigue: {en_curso}" --item "- {titulo} (#{id})"`
-   Marcadores: `{fecha}` `{tareas}` `{entregadas}` `{en_curso}`; por línea `{id}` `{titulo}` `{estado}` `{url}`.
+   `chat template --inicio "Hola equipo, hoy {fecha}:\n{tareas}" --cierre "Cierre {fecha}\nListo: {entregadas}\nSigue: {en_curso}" --item "- {titulo} (#{id})"`
+   Marcadores: `{fecha}` `{tareas}` `{entregadas}` `{en_curso}`; por línea `{id}` `{titulo}` `{estado}` `{url}`; `\n` = salto de línea.
 
 ## Inicio y cierre de jornada
 
