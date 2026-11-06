@@ -88,6 +88,15 @@ export const TOOLS: ToolDef[] = [
 
   { name: "azure_orgs", description: "Organizaciones Azure conectadas, cuál es la principal y su estado.", properties: {}, toArgs: () => ["azure", "orgs"] },
   { name: "azure_activity", description: "Lo que la persona hizo en Azure un día (work items cambiados, estados, horas, comentarios).", properties: { date: DATE, org: str("Organización (por defecto la principal)."), all: bool("Todas las organizaciones.") }, toArgs: (p) => build(["azure", "activity"], p, { date: "date", org: "org", all: "all" }) },
+  { name: "azure_hus", description: "HU abiertas de sus sprints donde colgar Tasks (con cuántas Tasks suyas y quién la creó).", properties: { org: str("Organización (por defecto la principal)."), days: num("Días hacia atrás (por defecto 45).") }, toArgs: (p) => build(["azure", "hus"], p, { org: "org", days: "days" }) },
+  { name: "azure_ceco", description: "Código de proyecto (CECO) usado en HU previas de un tema. Validar antes de proponer una HU.", properties: { topic: str("Tema de la HU."), org: str("Organización (por defecto la principal).") }, required: ["topic"], toArgs: (p) => build(["azure", "ceco"], p, { topic: "topic", org: "org" }) },
+  {
+    name: "azure_style",
+    description:
+      "Estilo de HU/Tasks aprobado por la persona. Sin argumentos lo muestra. Para guardar: SOLO tras proponer el formato y recibir su aprobación.",
+    properties: { kind: { type: "string", enum: ["hu", "task"], description: "hu o task." }, title: str("Formato del título."), description: str("Formato de la descripción."), example: str("Ejemplo aprobado.") },
+    toArgs: (p) => build(["azure", "style"], p, { kind: "kind", title: "title", description: "description", example: "example" }),
+  },
   { name: "azure_hours", description: "Propuesta de horas completadas por Task del día (no inventa; solo reuniones confirmadas). Mostrar a la persona.", properties: { date: DATE, set: str("Horas fijadas: id=h,id=h (acepta 1,5)."), meetings_task: str("Task donde registrar las reuniones confirmadas.") }, browser: true, timeoutMs: 180_000, toArgs: (p) => build(["azure", "hours"], p, { date: "date", set: "set", meetings_task: "meetings-task" }) },
   {
     name: "azure_hours_apply",

@@ -95,6 +95,18 @@ asumas que la persona programa. **Primero copia el estilo real** de su equipo: l
 (`azure hus`, la HU padre y sus Tasks hermanas) y usa ese formato. Las plantillas de abajo son solo el respaldo
 cuando no hay referencia; los `<valores>` se llenan con datos reales de la persona, nunca inventados.
 
+**Proponer antes de crear (no asumir el estilo):**
+
+1. `npm run linky -- azure style`: si ya hay estilo aprobado, úsalo.
+2. Si no hay: antes de la primera HU o Task, **propón** a la persona el formato (título y descripción) con un ejemplo
+   real de su trabajo, sacado de sus HU/Tasks anteriores o, si no hay, de las plantillas de abajo. Pregunta si así
+   está bien o qué cambiaría.
+3. Con su aprobación, guárdalo:
+   `azure style --kind task --title "<formato>" --description "<formato>" --example "<ejemplo que aprobó>"`
+   (igual con `--kind hu`). Desde ahí se reutiliza sin volver a preguntar; si la persona corrige un texto después,
+   actualiza el estilo.
+4. Cada HU/Task concreta igual pasa por preview y aprobación.
+
 ### Crear una HU (solo si su política lo permite; si no, se pide al responsable)
 
 ```text

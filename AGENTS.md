@@ -51,8 +51,9 @@ créditos a Jonathan Contreras).
 - **Jornada**: lunes a jueves 8,5 h, viernes 8 h. Festivos de Colombia, sábados y domingos no se exigen ni se llenan;
   si la persona trabajó un fin de semana y lo pide, se respeta. Menos horas solo si la persona lo pide para esa fecha.
 - **Reuniones**: solo las que la persona confirmó (`calendar confirm`). Eventos generales (pausas, charlas) no cuentan.
-- **HU y Tasks**: redactarlas con el estilo real del equipo de la persona (sus HU/Tasks anteriores); si no hay
-  referencia, usar las plantillas de `skills/linky-azure-boards` (sirven para cualquier área, no solo desarrollo).
+- **HU y Tasks**: no asumir el estilo. Si `azure style` no tiene uno aprobado, antes de la primera HU/Task proponer
+  el formato (de sus HU/Tasks anteriores o, si no hay, de las plantillas de `skills/linky-azure-boards`, que sirven
+  para cualquier área), mostrarlo y guardarlo con su aprobación (`azure style --kind hu|task …`). Luego reutilizarlo.
   Toda Task bajo una HU; crear o refinar HU solo si su política lo permite (si no, se pide al responsable).
 - **Organizaciones**: la principal por defecto; otra solo si la persona la pide.
 - **Sin procesos zombis**: Linky cierra sus navegadores al terminar o si se interrumpe. Si `doctor` o `alerts` reportan

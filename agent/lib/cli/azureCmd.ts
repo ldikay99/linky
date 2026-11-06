@@ -178,6 +178,26 @@ export async function runAzureCommand(sub: string | undefined, a: Argv, dataDir?
     return;
   }
 
+  if (sub === "style") {
+    const { loadAzureStyle, saveItemStyle } = await import("../azure/style.js");
+    const kind = a.arg("--kind");
+    const fields = { title: a.arg("--title"), description: a.arg("--description")?.replace(/\\n/g, "\n"), example: a.arg("--example") };
+    if (kind !== undefined || Object.values(fields).some((v) => v !== undefined)) {
+      if (kind !== "hu" && kind !== "task") throw new Error('azure style --kind hu|task --title "<formato>" --description "<formato>" --example "<ejemplo aprobado>"');
+      print({ ok: true, style: await saveItemStyle(kind, fields, dataDir) });
+      return;
+    }
+    const style = await loadAzureStyle(dataDir);
+    print({
+      style,
+      nota:
+        style.hu || style.task
+          ? "Estilo aprobado por la persona: úsalo al redactar HU/Tasks."
+          : "Sin estilo aprobado: antes de crear la primera HU/Task, propón el formato (de sus HU/Tasks anteriores o las plantillas del skill), muéstraselo y guárdalo con su aprobación.",
+    });
+    return;
+  }
+
   if (sub === "hus") {
     const { candidateParentHus } = await import("../azure/hus.js");
     const access = await resolveAzureAccess({ org: orgArg, dataDir });
@@ -240,7 +260,7 @@ export async function runAzureCommand(sub: string | undefined, a: Argv, dataDir?
     return;
   }
 
-  console.log(`linky azure <connect|login|orgs|use|expires|logout|activity|hus|ceco|hours|delete>
+  console.log(`linky azure <connect|login|orgs|use|expires|logout|activity|hus|ceco|style|hours|delete>
   connect --org https://dev.azure.com/<org> [--primary]   PAT (preferido), entrada oculta
   login   [--org …] [--primary]                           sesión web (navegador visible, una vez)
   orgs                                                    organizaciones conectadas y cuál es la principal
@@ -248,6 +268,7 @@ export async function runAzureCommand(sub: string | undefined, a: Argv, dataDir?
   activity [--date YYYY-MM-DD] [--org … | --all]          lo que hiciste ese día
   hus     [--org …] [--days 45]                         HU abiertas donde colgar Tasks (no se crean HU)
   ceco    --topic "<tema>"                              código de proyecto usado en HU previas del tema (validar antes de proponer)
+  style   [--kind hu|task --title … --description … --example …]  estilo de HU/Tasks aprobado por la persona
   hours   [--date …] [--set id=h,…] [--meetings-task <id>]  propuesta de horas reales por Task (preview)
           --apply --approve --snapshot <hash>             registra las horas aprobadas
   delete  --id <n> [--org …] [--approve]                  a la papelera de Azure (preview sin --approve)`);
