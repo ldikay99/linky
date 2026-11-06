@@ -43,13 +43,13 @@ export async function launchVisibleBrowser(opts?: { channel?: string }): Promise
 
 /** Espera activa hasta que `check` devuelva un valor o venza el plazo. */
 export async function waitForLogin<T>(
-  vb: VisibleBrowser,
+  isAlive: () => boolean,
   check: () => Promise<T | undefined>,
   timeoutMs = 10 * 60_000,
 ): Promise<T> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    if (!vb.browser.isConnected()) throw new Error("El navegador se cerró antes de completar el login.");
+    if (!isAlive()) throw new Error("El navegador se cerró antes de completar el login.");
     const v = await check().catch(() => undefined);
     if (v !== undefined) return v;
     await new Promise((r) => setTimeout(r, 1000));

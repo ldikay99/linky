@@ -47,6 +47,7 @@ import {
 import { describeRiporSession, loadRiporSession, resolveRiporSecretStore } from "../ripor/http/index.js";
 import { resolveAzureAccess, runAzureCommand } from "./azureCmd.js";
 import { renderBanner } from "./banner.js";
+import { runChatCommand } from "./chatCmd.js";
 
 function arg(flag: string): string | undefined {
   const i = process.argv.indexOf(flag);
@@ -514,6 +515,9 @@ async function main() {
     case "welcome":
       console.log(renderBanner());
       break;
+    case "chat":
+      await runChatCommand(process.argv[3], argvHelpers(), dataDir());
+      break;
     case "azure":
       await runAzureCommand(process.argv[3], argvHelpers(), dataDir());
       break;
@@ -543,7 +547,7 @@ HTTP con la sesión del usuario (keyring); navegador solo en "ripor login". --mo
     default:
       console.log(renderBanner());
       console.log(`Linky CLI
-Comandos: welcome | onboarding | plan | preview | apply | reconcile | drafts | status | azure | ripor | browser
+Comandos: welcome | onboarding | plan | preview | apply | reconcile | drafts | status | azure | ripor | chat | browser
 Flags: --data-dir --mock --secret-backend env|session --approve --by --snapshot --key
 Ripor: ripor login|catalog|setup|list|preview|apply|delete-preview|reconcile|status (URL https://ripor.co/u/horas)
 PAT: keyring OS; alternativa explícita env/session. Nunca archivo plaintext.

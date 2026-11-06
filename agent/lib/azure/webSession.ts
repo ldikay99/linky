@@ -83,7 +83,7 @@ export async function loginAzureWithBrowser(opts?: {
     await vb.page.goto(opts?.organizationUrl ?? "https://dev.azure.com/");
     log("Inicia sesión en Azure DevOps en la ventana y entra a tu organización. Se cerrará sola.");
     return await waitForLogin(
-      vb,
+      () => vb.browser.isConnected(),
       async () => {
         const url = new URL(vb.page.url());
         if (url.hostname !== "dev.azure.com") return undefined;

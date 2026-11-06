@@ -29,6 +29,7 @@ import {
   openRiporHttp,
   resolveRiporSecretStore,
   saveRiporSession,
+  RiporSessionExpiredError,
   type RiporCatalog,
 } from "../ripor/http/index.js";
 
@@ -73,7 +74,28 @@ export function futureDateBlocker(dateYmd: string, now = new Date()): string | u
 
 export async function riporAdapterFor(profile: RiporProfile, mock: boolean): Promise<RiporUiAdapter> {
   if (mock) return createMockRiporUiAdapter();
-  return (await openRiporHttp(profile)).adapter;
+  return (await openRiporHttpFresh(profile)).adapter;
+}
+
+/**
+ * Abre Ripor por HTTP y, si la sesión venció, la renueva SIN ventana con la sesión de Google
+ * del perfil compartido de Linky; si eso no alcanza, pide `ripor login`.
+ */
+export async function openRiporHttpFresh(profile: RiporProfile) {
+  const store = await resolveRiporSecretStore();
+  try {
+    const h = await openRiporHttp(profile, { store });
+    await h.client.getPageData();
+    return h;
+  } catch (e) {
+    const expired = e instanceof RiporSessionExpiredError || /No hay sesión Ripor/.test(String((e as Error).message));
+    if (!expired || process.env.LINKY_RIPOR_COOKIE) throw e;
+    process.stderr.write("Sesión de Ripor vencida: renovando sin ventana con tu sesión de Google…\n");
+    const { loginRiporWithBrowser } = await import("../ripor/http/login.js");
+    const cookies = await loginRiporWithBrowser({ headlessOnly: true });
+    await saveRiporSession({ cookies, savedAt: new Date().toISOString(), source: "refresh" }, store);
+    return openRiporHttp(profile, { store });
+  }
 }
 
 /** Completa labels faltantes del draft con los defaults del perfil (proyecto área, tarea, transporte). */
@@ -167,7 +189,7 @@ export async function cmdRiporSession(a: Argv, dataDir?: string) {
   let live: string | undefined;
   if (session && a.has("--check")) {
     const profile = await loadOrEmptyRiporProfile(dataDir);
-    const { adapter } = await openRiporHttp(profile, { store });
+    const { adapter } = await openRiporHttpFresh(profile);
     live = (await adapter.ensureSession({ allowHeadedLogin: false })).status;
   }
   print({ backend: store.backend, ...status, live: live ?? "(usa --check para validar contra Ripor)" });
@@ -183,7 +205,7 @@ function mergeTransports(observed: string[]): RiporTransportOption[] {
 
 export async function cmdRiporCatalog(a: Argv, dataDir?: string) {
   const profile = await loadOrEmptyRiporProfile(dataDir);
-  const { adapter } = await openRiporHttp(profile);
+  const { adapter } = await openRiporHttpFresh(profile);
   const warnings: string[] = [];
   let catalog: RiporCatalog | undefined;
   try {
@@ -274,7 +296,7 @@ export async function cmdRiporCatalog(a: Argv, dataDir?: string) {
 
 export async function cmdRiporList(a: Argv, dataDir?: string) {
   const profile = await loadOrEmptyRiporProfile(dataDir);
-  const { adapter } = await openRiporHttp(profile);
+  const { adapter } = await openRiporHttpFresh(profile);
   const dateYmd = a.arg("--date") ?? todayLocalYmd();
   const reports = await adapter.reportsForDate(dateYmd);
   const total = reports.reduce((s, r) => s + r.hours, 0);
@@ -307,7 +329,7 @@ export async function cmdRiporReconcile(a: Argv, dataDir?: string) {
   const profile = await loadOrEmptyRiporProfile(dataDir);
   const live: Record<string, unknown> = {};
   if (open.length && !a.has("--mock")) {
-    const { adapter } = await openRiporHttp(profile);
+    const { adapter } = await openRiporHttpFresh(profile);
     for (const d of new Set(open.map((e) => e.dateYmd))) {
       live[d] = (await adapter.reportsForDate(d)).map((r) => ({ id: r.id, hours: r.hours, description: r.description }));
     }

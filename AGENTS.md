@@ -22,7 +22,9 @@ Linky no usa API keys: funciona con el asistente de IA que la persona prefiera.
 ## Cuentas
 
 - Azure: puede haber varias organizaciones; una es la **principal** (default). Otra solo si el usuario la pide (`azure connect/login/use`).
-- Ripor: una sesión por persona (`ripor login`). Navegador solo para login; el resto por petición directa.
+- Ripor: una sesión por persona (`ripor login`). Navegador solo para login; el resto por petición directa. Si vence, se renueva sola.
+- Google Chat: `chat login` (una vez) y el chat de reporte elegido por la persona. Mensajes solo con borrador + aprobación (`skills/linky-chat`).
+- Un solo perfil de navegador de Linky para Google, Ripor y Chat (fuera del repo): la persona inicia sesión en Google una vez.
 
 ## Operación
 

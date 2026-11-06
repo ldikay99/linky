@@ -24,6 +24,7 @@ Linky es un **CLI con skills** que cualquier asistente de IA con acceso a termin
 - **Lee lo que hiciste** en Azure DevOps (tareas creadas, estados, horas completadas, comentarios) en todas tus organizaciones.
 - **Crea y actualiza tus Tasks** con descripción corta y evidencias, respetando quién puede crear o cerrar qué.
 - **Llena tu reporte de Ripor** con un resumen breve de ese trabajo, la evidencia correcta y las horas de tu jornada; y si algo salió mal, lo **edita, borra o recrea**.
+- **Publica tu mensaje de inicio y cierre de jornada** en el chat de Google Chat de tu equipo, con el texto que tú apruebes.
 
 No es una app ni una página web: son comandos locales. Funciona igual en **Windows, macOS y Linux**, y **no necesita API keys**: lo usas con el asistente de IA que prefieras.
 
@@ -35,6 +36,7 @@ flowchart LR
     IA -- comandos --> L[Linky CLI]
     L -- "REST + PAT o sesión" --> AZ[(Azure DevOps<br/>una o varias organizaciones)]
     L -- "HTTP + tu sesión" --> R[(Ripor)]
+    L -- "navegador headless" --> GC[(Google Chat)]
     L -. "secretos" .-> K[[Llavero del sistema]]
     L -- "preview + hash" --> IA
     IA -- "¿apruebas?" --> P
@@ -91,7 +93,9 @@ npm run linky -- ripor catalog --from-date <un día que ya reportaste>
 npm run linky -- ripor setup --answers ~/.linky/ripor-setup-answers.json --transporte "🏠 Trabajo Remoto"
 ```
 
-**3. Dile a tu asistente:** *"registra mi día en Ripor con lo que hice ayer en Azure"*. Por debajo hará algo así:
+**3. Conecta Google Chat** (opcional): `npm run linky -- chat login`, abres el chat donde reportas y cierras la ventana.
+
+**4. Dile a tu asistente:** *"registra mi día en Ripor con lo que hice ayer en Azure"*. Por debajo hará algo así:
 
 ```bash
 npm run linky -- azure activity --date 2026-11-04          # qué hiciste (usa --all para todas tus organizaciones)
@@ -108,6 +112,7 @@ Carga las skills; contienen el flujo completo, las reglas y qué preguntar:
 
 - [`skills/linky-azure-boards/SKILL.md`](skills/linky-azure-boards/SKILL.md): Azure DevOps.
 - [`skills/linky-ripor/SKILL.md`](skills/linky-ripor/SKILL.md): Ripor.
+- [`skills/linky-chat/SKILL.md`](skills/linky-chat/SKILL.md): Google Chat.
 - [`AGENTS.md`](AGENTS.md): reglas comunes.
 
 ## Seguridad

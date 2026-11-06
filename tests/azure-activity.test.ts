@@ -187,3 +187,23 @@ describe("bienvenida", () => {
     expect(renderBanner({ color: true })).toContain("\x1b[");
   });
 });
+
+describe("google chat (determinista)", () => {
+  it("reconoce conversaciones de Chat standalone y dentro de Gmail; rechaza home/marketing", async () => {
+    const { isConversationUrl } = await import("../agent/lib/chat/browser.js");
+    expect(isConversationUrl("https://chat.google.com/u/0/app/chat/AbCdEf12345")).toBe(true);
+    expect(isConversationUrl("https://chat.google.com/room/AAAAxyz")).toBe(true);
+    expect(isConversationUrl("https://mail.google.com/chat/u/0/#chat/dm/AbC123")).toBe(true);
+    expect(isConversationUrl("https://mail.google.com/mail/u/0/#chat/space/AAAA123")).toBe(true);
+    expect(isConversationUrl("https://chat.google.com/")).toBe(false);
+    expect(isConversationUrl("https://workspace.google.com/products/chat/")).toBe(false);
+  });
+
+  it("el hash del borrador cambia con el texto o el destino", async () => {
+    const { chatDraftHash } = await import("../agent/lib/cli/chatCmd.js");
+    const a = chatDraftHash("hola", "https://chat.google.com/u/0/app/chat/X1");
+    expect(chatDraftHash("hola", "https://chat.google.com/u/0/app/chat/X1")).toBe(a);
+    expect(chatDraftHash("hola!", "https://chat.google.com/u/0/app/chat/X1")).not.toBe(a);
+    expect(chatDraftHash("hola", "https://chat.google.com/u/0/app/chat/X2")).not.toBe(a);
+  });
+});
