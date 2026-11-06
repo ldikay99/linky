@@ -41,6 +41,7 @@ npm run linky -- chat send --draft <out> --approve --snapshot <hash>
 ```
 
 - Mostrar el texto EXACTO a la persona y enviar solo tras su "sí/envíalo".
-- Solo al chat configurado; si el usuario pide otro, repetir `chat login`.
+- Por defecto, al chat de reporte. Para escribir a otra conversación (p. ej. pedir una HU al líder) usar
+  `chat draft --file <texto> --to <url de esa conversación>`; el destino queda en el hash y requiere la misma aprobación.
 - `send` verifica que el mensaje apareció. Un mismo borrador no se envía dos veces; si quedó incierto, revisar con `chat read` antes de `--resend`.
 - Corto: tope 600 caracteres por defecto.

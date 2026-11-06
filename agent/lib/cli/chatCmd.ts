@@ -4,7 +4,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { loginAndPickChat } from "../chat/browser.js";
+import { isConversationUrl, loginAndPickChat } from "../chat/browser.js";
 import { loadChatConfig, saveChatConfig } from "../chat/config.js";
 import { readConversation, sendMessage } from "../chat/conversation.js";
 import { DEFAULT_CHAT_TEMPLATES, deliveredOn, myOpenTasks, renderDayMessage } from "../chat/dayMessages.js";
@@ -14,7 +14,14 @@ import { todayLocalYmd, type argvHelpers } from "./riporHttp.js";
 
 type Argv = ReturnType<typeof argvHelpers>;
 
-export type ChatDraft = { text: string; targetUrl: string; createdAt: string; snapshotHash: string };
+export type ChatDraft = {
+  text: string;
+  targetUrl: string;
+  createdAt: string;
+  snapshotHash: string;
+  /** Destino distinto del chat de reporte, elegido explícitamente con --to (también va en el hash). */
+  explicitTarget?: boolean;
+};
 type SentLog = Array<{ snapshotHash: string; status: "sent" | "unknown"; at: string }>;
 
 function print(obj: unknown) {
@@ -132,13 +139,19 @@ export async function runChatCommand(sub: string | undefined, a: Argv, dataDir?:
           );
     }
     if (!text) throw new Error('chat draft --inicio | --cierre [--date] | --text "<mensaje>" | --file <ruta>');
+    // Otra conversación (p. ej. pedir una HU al líder): --to <url de Google Chat>.
+    const to = a.arg("--to");
+    if (to && !isConversationUrl(to)) throw new Error(`--to no es una conversación de Google Chat: ${to}`);
+    const targetUrl = to ?? cfg.target.url;
+    const maxChars = targetUrl === cfg.target.url ? cfg.maxChars : 1500;
     const blockers: string[] = [];
-    if (text.length > cfg.maxChars) blockers.push(`Mensaje largo: ${text.length} > ${cfg.maxChars} caracteres. Resumir.`);
+    if (text.length > maxChars) blockers.push(`Mensaje largo: ${text.length} > ${maxChars} caracteres. Resumir.`);
     const draft: ChatDraft = {
       text,
-      targetUrl: cfg.target.url,
+      targetUrl,
       createdAt: new Date().toISOString(),
-      snapshotHash: chatDraftHash(text, cfg.target.url),
+      snapshotHash: chatDraftHash(text, targetUrl),
+      explicitTarget: targetUrl !== cfg.target.url || undefined,
     };
     const out = a.arg("--out") ?? path.join(linkyDataDir(dataDir), "last-chat-draft.json");
     await mkdir(path.dirname(out), { recursive: true });
@@ -146,7 +159,7 @@ export async function runChatCommand(sub: string | undefined, a: Argv, dataDir?:
     print({
       out,
       snapshotHash: draft.snapshotHash,
-      destino: cfg.target.title ?? cfg.target.url,
+      destino: targetUrl === cfg.target.url ? cfg.target.title ?? cfg.target.url : targetUrl,
       mostrarAlUsuario: text,
       caracteres: text.length,
       blockers,
@@ -165,7 +178,9 @@ export async function runChatCommand(sub: string | undefined, a: Argv, dataDir?:
     const cfg = await requireTarget(dataDir);
     if (chatDraftHash(draft.text, draft.targetUrl) !== draft.snapshotHash) throw new Error("El borrador fue modificado: genera uno nuevo.");
     if (a.arg("--snapshot") !== draft.snapshotHash) throw new Error("--snapshot no coincide con el borrador aprobado.");
-    if (draft.targetUrl !== cfg.target.url) throw new Error("El chat configurado cambió desde el borrador: genera uno nuevo.");
+    if (draft.targetUrl !== cfg.target.url && !draft.explicitTarget) {
+      throw new Error("El chat configurado cambió desde el borrador: genera uno nuevo.");
+    }
     const prev = (await loadSentLog(dataDir)).find((e) => e.snapshotHash === draft.snapshotHash);
     if (prev && !a.has("--resend")) {
       throw new Error(
@@ -188,7 +203,7 @@ export async function runChatCommand(sub: string | undefined, a: Argv, dataDir?:
   login    navegador visible: inicias sesión en Google, abres el chat de reporte y cierras la ventana
   read     últimos mensajes del chat (formato/estilo, verificación)
   template --inicio "<texto>" --cierre "<texto>" --item "<línea>"   formato del área de la persona
-  draft    --inicio | --cierre [--date] [--org] (desde Azure) o --text/--file   prepara el mensaje y su hash
+  draft    --inicio | --cierre [--date] [--org] (desde Azure) o --text/--file [--to <url chat>]   prepara el mensaje y su hash
   send     --draft <archivo> --approve --snapshot <hash>   publica (headless) y verifica`);
   if (sub) process.exitCode = 1;
 }
