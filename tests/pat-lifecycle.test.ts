@@ -77,7 +77,8 @@ describe("pat lifecycle", () => {
       clock: clockAt("2026-11-05T00:00:00.000Z"),
     });
     expect(ok.ok).toBe(true);
-    expect(FULL_ACCESS_WARNING).toMatch(/Recomendado/);
+    expect(FULL_ACCESS_WARNING).toMatch(/acceso amplio/);
+    expect(FULL_ACCESS_WARNING).toMatch(/llavero/);
   });
 
   it("reminder expired / <=7 / ok con fake clock; sin token en mensajes", () => {

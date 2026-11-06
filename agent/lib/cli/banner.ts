@@ -30,7 +30,7 @@ export function renderBanner(opts?: { color?: boolean }): string {
     "   Tus credenciales se quedan en el llavero de tu equipo.",
     "",
     "   Onboarding:",
-    "     1. Azure DevOps   →  azure connect --org <url> --primary   (PAT)",
+    "     1. Azure DevOps   →  azure connect --org <url> --primary   (PAT Full access · 90 días)",
     "     2. Ripor          →  ripor login  ·  ripor catalog  ·  ripor setup",
     "     3. Tu día         →  \"registra mi día con lo que hice en Azure\"",
     "",

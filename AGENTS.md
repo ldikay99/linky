@@ -16,7 +16,7 @@ Linky no usa API keys: funciona con el asistente de IA que la persona prefiera.
 
 - Pedir token de forma segura la primera vez; keyring/env/session; nunca plaintext ni repo.
 - Expiry/scopes **user-reported**; recordar ≤7 días con tz/reloj del dispositivo.
-- Full access solo con ack; recomendar Work Items R/W.
+- Al crear el PAT recomendar **Full access** y **90 días** de vigencia (permite todo el flujo); confirmar una vez la amplitud (ack). Mínimo aceptable: Work Items Read & Write.
 - Nunca copiar tokens del chat a fixtures, git, zip o logs.
 
 ## Cuentas

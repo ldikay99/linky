@@ -105,11 +105,11 @@ export function validatePatLifecycleInput(input: {
   }
   if (input.scopeChoice === "full_access" && input.fullAccessAcknowledged !== true) {
     errors.push(
-      "Full access requiere fullAccessAcknowledged=true (aviso de amplitud). Recomendado: work_items_rw.",
+      "Full access requiere fullAccessAcknowledged=true (confirmar una vez la amplitud del token).",
     );
   }
   if (input.scopeChoice !== "work_items_rw" && input.scopeChoice !== "full_access") {
-    errors.push("scopeChoice debe ser work_items_rw (recomendado) o full_access.");
+    errors.push("scopeChoice debe ser full_access (recomendado) o work_items_rw (mínimo).");
   }
 
   if (!errors.length && input.createdOn) {
@@ -212,7 +212,7 @@ export function evaluatePatReminder(
 }
 
 export const FULL_ACCESS_WARNING =
-  "Full access concede muchos más permisos de los necesarios. Recomendado: Work Items (Read & Write). Solo elige Full access si entiendes el riesgo y lo confirmas explícitamente.";
+  "Full access permite todo el flujo de Linky pero da acceso amplio a tu cuenta: guárdalo solo en el llavero (azure connect) y nunca en archivos ni repositorios.";
 
 /**
  * Documentación de recordatorio OS opt-in. No instala nada.

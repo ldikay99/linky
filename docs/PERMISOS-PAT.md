@@ -21,8 +21,16 @@ No hay archivo plaintext. Si existe un `azure-pat` legado en disco, elimínalo: 
 3. Nunca regeneres un PAT dentro del repositorio ni de ejemplos
 
 
-## Scopes recomendados vs Full access
+## Cómo crear el PAT (recomendado)
 
-- **Recomendado:** Work Items (Read & Write) — suficiente para metadata, apply y attachments.
-- **Full access:** opción **explícita** con confirmación (`fullAccessAcknowledged`). Es más amplio de lo necesario; úsalo solo si entiendes el riesgo.
+1. Azure DevOps → **User settings** (arriba a la derecha) → **Personal access tokens** → **New Token**.
+2. **Organization:** la organización donde trabajas (crea uno por organización).
+3. **Expiration:** *Custom defined* → **90 días**. Anota la fecha: Linky te avisa 7 días antes.
+4. **Scopes:** **Full access** (permite todo el flujo de Linky). Mínimo aceptable: Work Items (Read & Write).
+5. Copia el token y guárdalo con `npm run linky -- azure connect --org https://dev.azure.com/<org>` (te lo pide oculto).
+
+## Scopes
+
+- **Recomendado:** Full access, confirmando una vez su amplitud (`fullAccessAcknowledged`).
+- **Mínimo:** Work Items (Read & Write) — suficiente para metadata, apply y attachments.
 - Linky **no** puede inspeccionar de forma fiable los scopes ni el expiry a partir del string del PAT; debes informar fechas y elección de scope.

@@ -77,8 +77,8 @@ export const ONBOARDING_QUESTIONS: Array<{ id: string; prompt: string; once: tru
   { id: "huRefine", prompt: "¿Quién REFINA las HU? (misma o distinta política)", once: true },
   { id: "schedule", prompt: "Confirmar horario: lun–jue 08:30–18:00 y viernes 08:00–17:00 (interpretación del texto ambiguo)", once: true },
   { id: "lunchMinutes", prompt: "¿Cuánto dura el almuerzo (minutos)? Obligatorio; no inventar.", once: true },
-  { id: "patExpiresOn", prompt: "Vencimiento PAT YYYY-MM-DD (user-reported)", once: true },
-  { id: "scopeChoice", prompt: "Scopes: work_items_rw (recomendado) | full_access (ack requerido)", once: true },
+  { id: "patExpiresOn", prompt: "Vencimiento PAT YYYY-MM-DD (user-reported; recomendado crear el PAT a 90 días)", once: true },
+  { id: "scopeChoice", prompt: "Scopes: full_access (recomendado, ack requerido) | work_items_rw (mínimo)", once: true },
 ];
 
 export async function runOnboarding(

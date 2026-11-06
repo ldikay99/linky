@@ -28,8 +28,9 @@ npm run linky -- azure orgs                                                     
 npm run linky -- azure use --org https://dev.azure.com/<org>                           # cambiar principal
 ```
 
-- PAT: preferido **Full access** si el usuario lo acepta (ack); mínimo Work Items Read & Write. Un PAT suele valer solo para su organización.
-- Nunca pedir el PAT en el chat: el comando lo pide oculto. Si el usuario lo pega en el chat, guardarlo con `azure connect` (vía `LINKY_AZURE_PAT_INPUT`, sin escribirlo a archivos) y recomendarle revocarlo y crear otro.
+- PAT: recomendar crearlo con **Full access** y **90 días** de vigencia (Azure DevOps → User settings → Personal access tokens → New Token → organización, Expiration *Custom defined* 90 días, Scopes *Full access*). Confirmar una vez la amplitud (ack). Mínimo aceptable: Work Items Read & Write. Un PAT vale para la organización elegida al crearlo: uno por organización.
+- Anotar la fecha de vencimiento (hoy + 90 días): Linky avisa ≤7 días antes. Azure no deja leerla desde el token.
+- Preferir que el comando pida el PAT oculto. Si el usuario lo pega en el chat, guardarlo con `azure connect` (vía `LINKY_AZURE_PAT_INPUT`, nunca en archivos) y avisar una vez que quedó en el historial; rotarlo es decisión del usuario.
 - Con la sesión conectada todo va por REST; el navegador solo se usa para el login.
 
 ## Leer lo que hizo la persona
@@ -54,7 +55,7 @@ Preguntar y guardar (sin defaults inventados de proyecto):
 5. Quién **crea** y quién **refina** HU (`user_or_ai_with_approval` | `scrum_or_third_party_only`). Si scrum/tercero: al trabajar pedir **ID HU existente**; nunca crear/clonar/mover contra política
 6. Horario: texto ambiguo “lun a vie 8:30–18 y viernes 8–17” → interpretar **lun–jue 08:30–18:00 / viernes 08:00–17:00** y **confirmar**. Preguntar **almuerzo** (minutos/rango); no inventar
 7. Convención de títulos (opcional configurable)
-8. PAT expiry user-reported + tz dispositivo; scopes recomendados Work Items R/W; Full access solo con ack
+8. PAT: vencimiento user-reported (90 días recomendado) + tz dispositivo; Full access recomendado con ack (mínimo Work Items R/W)
 
 ## Crear Tasks (campos del proceso)
 
