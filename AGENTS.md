@@ -2,9 +2,10 @@
 
 Autor: **Jonathan Contreras**.
 
-Linky registra el día de trabajo de la persona en **Azure DevOps**, **Ripor** y **Google Chat**, con evidencias de
-Calendar, Gmail y (si desarrolla) sus commits/PRs. Es un CLI local + skills + servidor MCP; no usa API keys y
-funciona con el asistente de IA que la persona prefiera.
+Linky registra el día de trabajo de la persona en **Azure DevOps** y **Ripor**, con evidencias de Calendar y Gmail.
+Opcionales según su área: mensajes de inicio/cierre en **Google Chat** y, si desarrolla, sus commits/PRs. Lo usan
+áreas de todo tipo, no solo programadores: no asumas rol, formato de reporte ni que desarrolla. Es un CLI local +
+skills + servidor MCP; no usa API keys y funciona con el asistente de IA que la persona prefiera.
 
 - Con MCP (recomendado): el repo ya trae la configuración (`.mcp.json`, `.vscode/mcp.json`). Al abrir la carpeta, el
   cliente detecta el servidor `linky`; si pide aprobarlo, apruébalo tú (la IA) en la configuración local del proyecto.
@@ -27,10 +28,11 @@ créditos a Jonathan Contreras).
    Luego `onboarding --answers <json>` con datos REALES de la persona.
 2. `google login` (una vez): habilita Chat, Calendar, Gmail y el login de Ripor con Google.
 3. `ripor login` → `ripor catalog --from-date <día ya reportado>` → `ripor setup` (proyecto de ÁREA ≠ proyectos Azure).
-4. `chat login` (chat de reporte) y `chat template` según cómo reporta su área.
+4. Opcional: preguntar si su equipo reporta inicio/cierre de jornada en Google Chat. Solo si dice que sí:
+   `chat login` (chat de reporte) y `chat template` según cómo reporta su área. Si no, saltar este paso.
 5. `calendar meetings`: preguntar cuáles eventos son reuniones de trabajo (`calendar confirm|ignore --title`).
-6. Si desarrolla: `dev scan --root <carpeta>` y quitar repos personales con `dev remove`.
-7. `doctor` para confirmar que todo quedó en verde.
+6. Opcional, si desarrolla: `dev scan --root <carpeta>` y quitar repos personales con `dev remove`.
+7. `doctor` para confirmar que todo quedó en verde (chat y desarrollo son opcionales: no lo hacen fallar).
 
 ## Uso diario
 

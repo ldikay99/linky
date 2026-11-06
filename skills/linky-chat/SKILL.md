@@ -1,11 +1,14 @@
 ---
 name: linky-chat
-description: Publicar los mensajes de inicio y cierre de jornada en el chat de Google Chat que la persona eligió, con borrador y aprobación. Headless tras un único login.
+description: Opcional. Publicar los mensajes de inicio y cierre de jornada en el chat de Google Chat que la persona eligió, con borrador y aprobación. Solo si su área reporta así. Headless tras un único login.
 ---
 
-# Linky — Google Chat (agnóstico de proveedor)
+# Linky — Google Chat (opcional)
 
 **Autor:** Jonathan Contreras
+
+**Opcional:** no todas las áreas reportan inicio y cierre de jornada en un chat. Pregunta a la persona si su equipo lo
+hace; si no, no configures nada de esto (`doctor` no falla sin chat).
 
 Google Chat no ofrece API de usuario sin un proyecto Cloud/OAuth propio, así que Linky usa el **perfil de navegador
 compartido de Linky** (fuera del repo): login visible una vez y después todo **headless**. La misma sesión de Google
