@@ -121,8 +121,13 @@ export const TOOLS: ToolDef[] = [
   {
     name: "chat_draft",
     description: "Borrador de inicio o cierre de jornada (desde Azure, con la plantilla del área) o texto propio. Mostrar a la persona.",
-    properties: { kind: { type: "string", enum: ["inicio", "cierre"], description: "Tipo de mensaje." }, date: DATE, text: str("Texto propio en lugar del generado.") },
-    toArgs: (p) => build(["chat", "draft"], { ...p, inicio: p.kind === "inicio" && !p.text, cierre: p.kind === "cierre" && !p.text }, { inicio: "inicio", cierre: "cierre", date: "date", text: "text" }),
+    properties: {
+      kind: { type: "string", enum: ["inicio", "cierre"], description: "Tipo de mensaje." },
+      date: DATE,
+      text: str("Texto propio en lugar del generado."),
+      to: str("URL de otra conversación de Google Chat (p. ej. para pedir una HU al líder). Por defecto, el chat de reporte."),
+    },
+    toArgs: (p) => build(["chat", "draft"], { ...p, inicio: p.kind === "inicio" && !p.text, cierre: p.kind === "cierre" && !p.text }, { inicio: "inicio", cierre: "cierre", date: "date", text: "text", to: "to" }),
   },
   {
     name: "chat_send",
