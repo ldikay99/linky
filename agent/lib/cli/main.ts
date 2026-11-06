@@ -48,6 +48,7 @@ import { describeRiporSession, loadRiporSession, resolveRiporSecretStore } from 
 import { resolveAzureAccess, runAzureCommand } from "./azureCmd.js";
 import { renderBanner } from "./banner.js";
 import { runChatCommand } from "./chatCmd.js";
+import { runCalendarCommand } from "./calendarCmd.js";
 
 function arg(flag: string): string | undefined {
   const i = process.argv.indexOf(flag);
@@ -515,6 +516,9 @@ async function main() {
     case "welcome":
       console.log(renderBanner());
       break;
+    case "calendar":
+      await runCalendarCommand(process.argv[3], argvHelpers(), dataDir());
+      break;
     case "chat":
       await runChatCommand(process.argv[3], argvHelpers(), dataDir());
       break;
@@ -547,7 +551,7 @@ HTTP con la sesión del usuario (keyring); navegador solo en "ripor login". --mo
     default:
       console.log(renderBanner());
       console.log(`Linky CLI
-Comandos: welcome | onboarding | plan | preview | apply | reconcile | drafts | status | azure | ripor | chat | browser
+Comandos: welcome | onboarding | plan | preview | apply | reconcile | drafts | status | azure | ripor | chat | calendar | browser
 Flags: --data-dir --mock --secret-backend env|session --approve --by --snapshot --key
 Ripor: ripor login|catalog|setup|list|preview|apply|delete-preview|reconcile|status (URL https://ripor.co/u/horas)
 PAT: keyring OS; alternativa explícita env/session. Nunca archivo plaintext.
@@ -558,7 +562,12 @@ Scheduling no se activa al instalar.`);
 }
 
 main().catch((e) => {
-  console.error(String((e as Error).message || e));
+  // Nunca imprimir registros con cookies/cabeceras de auth (los errores de red de Playwright los incluyen).
+  const safe = String((e as Error).message || e)
+    .split(/\r?\n/)
+    .filter((l) => !/cookie|authorization|set-cookie|\bSID=|PSID/i.test(l))
+    .join("\n");
+  console.error(safe);
   // exitCode (no process.exit): en Windows salir con handles de red abiertos dispara una aserción de libuv.
   process.exitCode = 1;
 });

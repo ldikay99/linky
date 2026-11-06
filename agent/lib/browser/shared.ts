@@ -62,3 +62,12 @@ export async function openSharedBrowser(opts: { headless: boolean; dataDir?: str
       "Instala Google Chrome o ejecuta: npx playwright-core install chromium",
   );
 }
+
+/**
+ * Error de navegador SIN registros de llamada: Playwright adjunta cabeceras (incluidas cookies de sesión)
+ * a sus errores de red. Nunca propagar ni imprimir esos registros.
+ */
+export function safeBrowserError(e: unknown, context: string): Error {
+  const first = String((e as Error)?.message ?? e).split("\n")[0].replace(/cookie:.*$/i, "[cookies omitidas]");
+  return new Error(`${context}: ${first.slice(0, 200)}`);
+}
