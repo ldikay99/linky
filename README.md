@@ -88,9 +88,12 @@ npm run linky -- ripor setup --answers ~/.linky/ripor-setup-answers.json --trans
 
 **3. Conecta Google** (opcional): `npm run linky -- google login` (una vez). Luego `chat login` para elegir el chat donde reportas. Con esa misma sesión se leen tus reuniones de Calendar (`calendar day`) y Ripor entra con Google sin abrir ventana.
 
-**4. Dile a tu asistente:** *"registra mi día en Ripor con lo que hice ayer en Azure"*. Por debajo hará algo así:
+**4. Revisa que todo esté conectado:** `npm run linky -- doctor` (dice exactamente qué falta y cómo arreglarlo).
+
+**5. Dile a tu asistente:** *"registra mi día en Ripor con lo que hice ayer en Azure"*. Por debajo hará algo así:
 
 ```bash
+npm run linky -- day                                       # todo el día en una llamada: Azure, reuniones, Ripor, chat
 npm run linky -- azure activity --date 2026-11-04          # qué hiciste (usa --all para todas tus organizaciones)
 npm run linky -- ripor list                                # qué hay reportado hoy
 npm run linky -- ripor preview --notes "<resumen breve>" --evidence <enlace HU> --sustained 8.5
@@ -108,6 +111,12 @@ Carga las skills; contienen el flujo completo, las reglas y qué preguntar:
 - [`skills/linky-chat/SKILL.md`](skills/linky-chat/SKILL.md): Google Chat.
 - [`skills/linky-calendar/SKILL.md`](skills/linky-calendar/SKILL.md): Google Calendar.
 - [`AGENTS.md`](AGENTS.md): reglas comunes.
+
+## Contribuir
+
+¿Tu IA corrigió un bug o amplió algo que le sirve a todos? Con tu aprobación, `npm run contribute` valida todo, crea tu
+rama `contrib/<tu-usuario>/<tema>` y abre un PR. El mantenedor lo revisa antes de integrarlo. Detalle en
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Seguridad
 

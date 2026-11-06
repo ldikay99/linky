@@ -50,6 +50,8 @@ import { renderBanner } from "./banner.js";
 import { runChatCommand } from "./chatCmd.js";
 import { runCalendarCommand } from "./calendarCmd.js";
 import { runGoogleCommand } from "./googleCmd.js";
+import { runDoctor } from "./doctorCmd.js";
+import { runDay } from "./dayCmd.js";
 
 function arg(flag: string): string | undefined {
   const i = process.argv.indexOf(flag);
@@ -517,6 +519,15 @@ async function main() {
     case "welcome":
       console.log(renderBanner());
       break;
+    case "doctor": {
+      const r = await runDoctor({ dataDir: dataDir(), skipBrowser: has("--no-browser") });
+      console.log(JSON.stringify(r, null, 2));
+      if (!r.ok) process.exitCode = 1;
+      break;
+    }
+    case "day":
+      await runDay(argvHelpers(), dataDir());
+      break;
     case "google":
       await runGoogleCommand(process.argv[3], argvHelpers(), dataDir());
       break;
@@ -555,7 +566,7 @@ HTTP con la sesión del usuario (keyring); navegador solo en "ripor login". --mo
     default:
       console.log(renderBanner());
       console.log(`Linky CLI
-Comandos: welcome | onboarding | plan | preview | apply | reconcile | drafts | status | azure | ripor | google | chat | calendar | browser
+Comandos: welcome | doctor | day | onboarding | plan | preview | apply | reconcile | drafts | status | azure | ripor | google | chat | calendar | browser
 Flags: --data-dir --mock --secret-backend env|session --approve --by --snapshot --key
 Ripor: ripor login|catalog|setup|list|preview|apply|delete-preview|reconcile|status (URL https://ripor.co/u/horas)
 PAT: keyring OS; alternativa explícita env/session. Nunca archivo plaintext.

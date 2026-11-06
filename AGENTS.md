@@ -27,6 +27,16 @@ Linky no usa API keys: funciona con el asistente de IA que la persona prefiera.
 - Google Calendar: `calendar day` con la misma sesión de Google; reuniones, grabaciones, notas y fotos como evidencia (`skills/linky-calendar`).
 - Un solo perfil de navegador de Linky para Google, Ripor, Chat y Calendar (fuera del repo): la persona inicia sesión en Google una vez (`google login`). Para rotar esa sesión: `google logout` + `google login`.
 
+## Empezar rápido
+
+- `npm run linky -- doctor`: estado de todo y el arreglo exacto de cada problema. Úsalo antes de diagnosticar a mano.
+- `npm run linky -- day [--date …] [--all]`: todo el día en una llamada (Azure, reuniones, Ripor, borradores de chat, siguientes pasos).
+
+## Contribuir
+
+Si un ajuste sirve a todos (bug o ampliación, no configuración personal), hazlo con tests y, con aprobación de la
+persona, ejecuta `npm run contribute` (rama `contrib/<usuario>/<tema>` + PR). Ver `CONTRIBUTING.md`.
+
 ## Operación
 
 Una config; preguntar solo faltantes; preview+approval; journal fail-closed; ejemplos solo sintéticos.
