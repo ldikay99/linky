@@ -25,7 +25,7 @@ Linky es un **CLI con skills** que cualquier asistente de IA con acceso a termin
 - **Crea y actualiza tus Tasks** con descripción corta y evidencias, respetando quién puede crear o cerrar qué.
 - **Llena tu reporte de Ripor** con un resumen breve de ese trabajo, la evidencia correcta y las horas de tu jornada; y si algo salió mal, lo **edita, borra o recrea**.
 
-No es una app ni una página web: son comandos locales. Funciona igual en **Windows, macOS y Linux**, y no depende de ningún proveedor de IA.
+No es una app ni una página web: son comandos locales. Funciona igual en **Windows, macOS y Linux**, y **no necesita API keys**: lo usas con el asistente de IA que prefieras.
 
 ## Cómo funciona
 

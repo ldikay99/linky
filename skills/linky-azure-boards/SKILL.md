@@ -9,6 +9,12 @@ description: Guía agnóstica de IA para onboarding y registro diario en Azure B
 
 Sirve con cualquier asistente de IA que pueda ejecutar comandos. Núcleo: `npm run linky`.
 
+## Bienvenida (al iniciar el onboarding)
+
+Cuando entiendas el proyecto y empieces el onboarding con la persona, ejecuta `npm run linky -- welcome`
+y muestra su salida **tal cual, dentro de un bloque de código** (logo Linky y créditos a Jonathan Contreras).
+Linky no usa API keys: funciona con el asistente de IA que la persona prefiera.
+
 ## Conexión (una vez por organización)
 
 Una persona puede trabajar en **varias organizaciones** (la de su empresa y otras de clientes/consorcios).

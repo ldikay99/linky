@@ -176,3 +176,14 @@ describe("campos obligatorios al crear Task", async () => {
     expect(await inferFromSiblings(client, [10, 11, 12], ["Custom.Sub"])).toEqual({ "Custom.Sub": "N/A" });
   });
 });
+
+describe("bienvenida", () => {
+  it("muestra logo y créditos; sin color en salida capturada", async () => {
+    const { renderBanner } = await import("../agent/lib/cli/banner.js");
+    const plain = renderBanner({ color: false });
+    expect(plain).toContain("██╗     ██╗███╗   ██╗");
+    expect(plain).toContain("por Jonathan Contreras");
+    expect(plain).not.toContain("\x1b[");
+    expect(renderBanner({ color: true })).toContain("\x1b[");
+  });
+});

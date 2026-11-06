@@ -6,6 +6,12 @@ Autor: **Jonathan Contreras**.
 2. Skill: `skills/linky-azure-boards/SKILL.md`
 3. `agent/` (eve) opcional
 
+## Bienvenida (al iniciar el onboarding)
+
+Cuando entiendas el proyecto y empieces el onboarding con la persona, ejecuta `npm run linky -- welcome`
+y muestra su salida **tal cual, dentro de un bloque de código** (logo Linky y créditos a Jonathan Contreras).
+Linky no usa API keys: funciona con el asistente de IA que la persona prefiera.
+
 ## Secretos y PAT
 
 - Pedir token de forma segura la primera vez; keyring/env/session; nunca plaintext ni repo.

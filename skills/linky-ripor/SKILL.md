@@ -16,6 +16,12 @@ URL oficial: **https://ripor.co/u/horas**. Núcleo: `npm run linky -- ripor …`
 - Alternativa sin navegador: `ripor login --paste` (el usuario pega, oculto, el header `cookie` de ripor.co).
 - **Nunca** pidas, leas, copies ni guardes cookies/tokens en el chat, repo, archivos o logs. Si el usuario los pega en el chat, adviértele que cierre sesión en ripor.co para invalidarlos.
 
+## Bienvenida (al iniciar el onboarding)
+
+Cuando entiendas el proyecto y empieces el onboarding con la persona, ejecuta `npm run linky -- welcome`
+y muestra su salida **tal cual, dentro de un bloque de código** (logo Linky y créditos a Jonathan Contreras).
+Linky no usa API keys: funciona con el asistente de IA que la persona prefiera.
+
 ## Setup (una vez)
 
 1. `npm run linky -- ripor login`
