@@ -86,7 +86,7 @@ npm run linky -- ripor catalog --from-date <un día que ya reportaste>
 npm run linky -- ripor setup --answers ~/.linky/ripor-setup-answers.json --transporte "🏠 Trabajo Remoto"
 ```
 
-**3. Conecta Google** (opcional): `npm run linky -- chat login`, inicias sesión, abres el chat donde reportas y cierras la ventana. Con esa sesión también se leen tus reuniones de Calendar (`calendar day`).
+**3. Conecta Google** (opcional): `npm run linky -- google login` (una vez). Luego `chat login` para elegir el chat donde reportas. Con esa misma sesión se leen tus reuniones de Calendar (`calendar day`) y Ripor entra con Google sin abrir ventana.
 
 **4. Dile a tu asistente:** *"registra mi día en Ripor con lo que hice ayer en Azure"*. Por debajo hará algo así:
 
