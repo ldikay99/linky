@@ -92,7 +92,7 @@ describe("sin fechas en descripciones", () => {
   it("el marcador oculto de Azure no contiene la fecha de la clave", () => {
     const marker = linkyClientKeyMarker("create::2026-11-05::act-1::Demo");
     expect(marker).not.toMatch(/2026/);
-    expect(marker).toMatch(/^<!--linky:k=[0-9a-f]{16}-->$/);
+    expect(marker).toMatch(/^<!--ref=[0-9a-f]{16}-->$/);
   });
 
   it("Ripor bloquea festivos", () => {

@@ -178,6 +178,52 @@ export async function runAzureCommand(sub: string | undefined, a: Argv, dataDir?
     return;
   }
 
+  if (sub === "fields") {
+    // Cada campo que el equipo llena en ese tipo, leído de items reales de referencia (no se copian valores).
+    const { fieldUsage } = await import("../azure/fieldUsage.js");
+    const { createHttpAzureClient } = await import("../azure/client.js");
+    const access = await resolveAzureAccess({ org: orgArg, dataDir });
+    const headers = { ...azureAuthHeaders(access.auth), accept: "application/json" };
+    const getItem = async (id: number) => {
+      const res = await fetch(`${access.organizationUrl}/_apis/wit/workitems/${id}?$expand=relations&api-version=7.1`, {
+        headers,
+        redirect: "manual",
+        signal: AbortSignal.timeout(30_000),
+      });
+      assertAzureAuthenticated(res);
+      if (!res.ok) throw new Error(`Work item ${id}: HTTP ${res.status}`);
+      return (await res.json()) as import("../azure/client.js").WorkItem;
+    };
+    const like = (a.arg("--like") ?? "").split(",").map(Number).filter((n) => Number.isInteger(n) && n > 0);
+    const parentId = Number(a.arg("--parent"));
+    let refs = await Promise.all(like.map(getItem));
+    if (Number.isInteger(parentId) && parentId > 0) {
+      const parent = await getItem(parentId);
+      const kids = (parent.relations ?? [])
+        .filter((r) => r.rel === "System.LinkTypes.Hierarchy-Forward")
+        .map((r) => Number(r.url.split("/").pop()))
+        .sort((x, y) => y - x)
+        .slice(0, 8);
+      refs = refs.concat(await Promise.all(kids.map(getItem)));
+    }
+    const type = a.arg("--type") ?? String(refs[0]?.fields["System.WorkItemType"] ?? "");
+    if (!type) throw new Error('azure fields --type "Task|User Story" [--parent <HU>] [--like <id,id>]');
+    refs = refs.filter((r) => r.fields["System.WorkItemType"] === type);
+    const project = String(refs[0]?.fields["System.TeamProject"] ?? (await loadProfile(dataDir))?.azure.project ?? "");
+    if (!project) throw new Error("Indica --like <id> de un item del proyecto o configura el proyecto en onboarding.");
+    const client = createHttpAzureClient({ organizationUrl: access.organizationUrl, project, ...access.auth });
+    const usage = fieldUsage(await client.getProcessMeta(type), refs);
+    print({
+      tipo: type,
+      referencias: refs.map((r) => ({ id: r.id, titulo: r.fields["System.Title"] })),
+      campos: usage,
+      nota: refs.length
+        ? "Campos que el equipo llena en este tipo (lleno/total en las referencias). Al crear o refinar, considera cada uno: propón el valor desde el trabajo real o pregúntalo a la persona. Los ejemplos muestran el formato; no se copian."
+        : "Sin referencias: solo se muestran los obligatorios. Usa --parent <HU> o --like <id> de items parecidos del equipo.",
+    });
+    return;
+  }
+
   if (sub === "style") {
     const { loadAzureStyle, saveItemStyle } = await import("../azure/style.js");
     const kind = a.arg("--kind");
@@ -260,7 +306,7 @@ export async function runAzureCommand(sub: string | undefined, a: Argv, dataDir?
     return;
   }
 
-  console.log(`linky azure <connect|login|orgs|use|expires|logout|activity|hus|ceco|style|hours|delete>
+  console.log(`linky azure <connect|login|orgs|use|expires|logout|activity|hus|ceco|fields|style|hours|delete>
   connect --org https://dev.azure.com/<org> [--primary]   PAT (preferido), entrada oculta
   login   [--org …] [--primary]                           sesión web (navegador visible, una vez)
   orgs                                                    organizaciones conectadas y cuál es la principal
@@ -268,6 +314,7 @@ export async function runAzureCommand(sub: string | undefined, a: Argv, dataDir?
   activity [--date YYYY-MM-DD] [--org … | --all]          lo que hiciste ese día
   hus     [--org …] [--days 45]                         HU abiertas donde colgar Tasks (no se crean HU)
   ceco    --topic "<tema>"                              código de proyecto usado en HU previas del tema (validar antes de proponer)
+  fields  --type "Task|User Story" [--parent <HU>] [--like <id,id>]  cada campo que el equipo llena (antes de crear/refinar)
   style   [--kind hu|task --title … --description … --example …]  estilo de HU/Tasks aprobado por la persona
   hours   [--date …] [--set id=h,…] [--meetings-task <id>]  propuesta de horas reales por Task (preview)
           --apply --approve --snapshot <hash>             registra las horas aprobadas

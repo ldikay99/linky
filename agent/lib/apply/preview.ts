@@ -1,6 +1,7 @@
 import type { AzureClient } from "../azure/client.js";
 import { linkyClientKeyMarker, prepareLocalImageAttachment } from "../azure/attachments.js";
 import { inferFromSiblings, pickWritableFields } from "../azure/fields.js";
+import { commonlyFilledButMissing, fieldUsage } from "../azure/fieldUsage.js";
 import type { WorkItem } from "../azure/client.js";
 import { canTransition, resolveTargetState, type DeliveryIntent } from "../azure/states.js";
 import type { ApplyPreview, DayPlan, LinkyProfile, PlannedChange, AttachmentPlan } from "../types.js";
@@ -95,10 +96,13 @@ export async function previewDayChanges(
     if (act.workItemId) {
       const clientKey = buildClientKey(["update", plan.date, act.id, act.workItemId]);
       const descriptionHtml = `<div><p>${escapeHtml(act.shortDescription)}</p><pre>${escapeHtml(evidenceBlock)}${escapeHtml(mention)}</pre>${linkyClientKeyMarker(clientKey)}</div>`;
+      const explicitDescription = act.fields?.["System.Description"];
       const desired = {
         ...baseDesired,
-        "System.Description": descriptionHtml,
-        "System.History": `Linky: ${act.shortDescription}`,
+        ...(act.fields ?? {}),
+        "System.Description":
+          typeof explicitDescription === "string" ? `${explicitDescription}${linkyClientKeyMarker(clientKey)}` : descriptionHtml,
+        "System.History": typeof act.fields?.["System.History"] === "string" ? act.fields["System.History"] : escapeHtml(act.shortDescription),
       };
       const picked = pickWritableFields(meta, desired);
       for (const s of picked.skipped) summary.push(`Omitido en #${act.workItemId}: ${s}`);
@@ -132,7 +136,7 @@ export async function previewDayChanges(
                 workItemId: act.workItemId,
                 clientKey: buildClientKey(["transition", plan.date, act.id, act.workItemId, resolved.state]),
                 toState: resolved.state,
-                comment: "Linky close: user explicit + separate approval",
+                comment: undefined,
                 intent: "cerrado",
                 workItemTypeHint: typeName,
                 userExplicitCloseIntent: true,
@@ -158,7 +162,7 @@ export async function previewDayChanges(
                 workItemId: act.workItemId,
                 clientKey: buildClientKey(["transition", plan.date, act.id, act.workItemId, resolved.state]),
                 toState: resolved.state,
-                comment: `Linky intent=${intent}`,
+                comment: undefined,
                 intent,
                 workItemTypeHint: typeName,
                 expectedRev: act.expectedRev,
@@ -216,7 +220,11 @@ export async function previewDayChanges(
         ...baseDesired,
         ...(act.fields ?? {}),
         "System.Title": title,
-        "System.Description": descriptionHtml,
+        // Descripción con el formato propio de la persona (HTML) si la actividad la trae; el marcador siempre al final.
+        "System.Description":
+          typeof act.fields?.["System.Description"] === "string"
+            ? `${act.fields["System.Description"]}${linkyClientKeyMarker(clientKey)}`
+            : descriptionHtml,
       };
       let picked = pickWritableFields(meta, desired);
       const estimateRef = "Microsoft.VSTS.Scheduling.OriginalEstimate";
@@ -239,6 +247,32 @@ export async function previewDayChanges(
               .join(", ")}`,
           );
           picked = pickWritableFields(meta, desired);
+        }
+      }
+      // Campos que el equipo suele llenar en las hermanas del mismo tipo y que aquí quedarían vacíos.
+      if (parent) {
+        const refs: WorkItem[] = [];
+        const siblingIds = (parent.relations ?? [])
+          .filter((r) => r.rel === "System.LinkTypes.Hierarchy-Forward")
+          .map((r) => Number(r.url.split("/").pop()))
+          .filter(Number.isInteger)
+          .sort((a, b) => b - a)
+          .slice(0, 8);
+        for (const id of siblingIds) {
+          try {
+            const wi = await client.getWorkItem(id);
+            if (wi.fields["System.WorkItemType"] === undefined || wi.fields["System.WorkItemType"] === typeName) refs.push(wi);
+          } catch {
+            /* hermana ilegible: se ignora */
+          }
+        }
+        const missingCommon = commonlyFilledButMissing(fieldUsage(meta, refs), picked.applied);
+        if (missingCommon.length) {
+          summary.push(
+            `"${act.title}": sus hermanas (${typeName}) suelen llenar y aquí quedan vacíos: ${missingCommon
+              .map((u) => `${u.name} (${u.referenceName}, ${u.filled}/${u.of})`)
+              .join(", ")}. Revisa con \`azure fields\` y pregunta a la persona lo que no se pueda saber.`,
+          );
         }
       }
       for (const s of picked.skipped) summary.push(`Omitido al crear "${act.title}": ${s}`);

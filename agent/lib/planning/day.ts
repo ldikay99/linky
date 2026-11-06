@@ -1,5 +1,6 @@
 import type { DayActivity, DayPlan, LinkyProfile } from "../types.js";
 import { validateDescription } from "./description.js";
+import { noDatesError } from "./noDates.js";
 import { scheduleWindowLabel, todayInBogota } from "./schedule.js";
 import { evidenceMissing, validateLinks } from "../evidence/attachments.js";
 import { validateDayCoverage } from "./coverage.js";
@@ -38,6 +39,10 @@ export function buildDayPlan(profile: LinkyProfile, input: DayInput): DayPlan {
     const desc = raw.shortDescription ?? "";
     const v = validateDescription(desc, raw.kind, profile.description);
     if (!v.ok) missing.push(`Actividad "${raw.title}": ${v.errors.join("; ")}`);
+    const explicitDesc = raw.fields?.["System.Description"];
+    const explicitDatesErr =
+      typeof explicitDesc === "string" ? noDatesError(explicitDesc.replace(/<[^>]+>/g, " ")) : undefined;
+    if (explicitDatesErr) missing.push(`Actividad "${raw.title}": ${explicitDatesErr}`);
 
     const links = raw.evidenceLinks ?? [];
     const meetings = raw.meetingOrCallLinks ?? [];
@@ -102,6 +107,7 @@ export function buildDayPlan(profile: LinkyProfile, input: DayInput): DayPlan {
       meetingOrCallLinks: meetings,
       notes: raw.notes,
       expectedRev: raw.expectedRev,
+      fields: raw.fields,
       timeRange: raw.timeRange,
     });
   }

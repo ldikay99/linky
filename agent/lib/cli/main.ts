@@ -72,7 +72,8 @@ function has(flag: string): boolean {
 }
 
 async function readJson<T>(file: string): Promise<T> {
-  return JSON.parse(await readFile(file, "utf8")) as T;
+  // Sin BOM: PowerShell 5.1 (Set-Content/Out-File -Encoding utf8) lo antepone.
+  return JSON.parse((await readFile(file, "utf8")).replace(/^﻿/, "")) as T;
 }
 
 function dataDir(): string | undefined {
