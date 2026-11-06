@@ -16,7 +16,8 @@ import { loadRiporJournal, riporJournalBlocksMutations } from "../ripor/journal.
 import { classifyMonth, monthDays } from "../ripor/month.js";
 import { loadRiporProfile } from "../ripor/profileStore.js";
 import { expectedHoursForDate, isWorkday } from "../ripor/schedule.js";
-import { resolveAzureAccess } from "./azureCmd.js";
+import { resolveAzureAccess, whoAmI } from "./azureCmd.js";
+import { applyPatExpiriesFromMail } from "./patMailCmd.js";
 import { openRiporHttpFresh, todayLocalYmd, type argvHelpers } from "./riporHttp.js";
 
 type Argv = ReturnType<typeof argvHelpers>;
@@ -66,10 +67,24 @@ export async function runAlerts(a: Argv, dataDir?: string): Promise<void> {
   const azureJob = (async () => {
     const reg = await loadAzureOrgs(dataDir);
     const profile = await loadProfile(dataDir);
-    const pats = reg.orgs.map((o) => ({
-      organizacion: o.organizationUrl,
-      vence: o.expiresOn ?? (reg.primary === o.organizationUrl ? profile?.patLifecycle?.expiresOn : undefined),
-    }));
+    // Cada token se prueba de verdad (connectionData): si falla, aviso alto.
+    const pats = await Promise.all(
+      reg.orgs.map(async (o) => {
+        let funciona: boolean | undefined;
+        try {
+          const access = await resolveAzureAccess({ org: o.organizationUrl, dataDir });
+          await whoAmI(access.organizationUrl, access.auth);
+          funciona = true;
+        } catch (e) {
+          funciona = /AZURE_AUTH_INVALID|no válida|401/i.test(String((e as Error).message)) ? false : undefined;
+        }
+        return {
+          organizacion: o.organizationUrl,
+          vence: o.expiresOn ?? (reg.primary === o.organizationUrl ? profile?.patLifecycle?.expiresOn : undefined),
+          funciona,
+        };
+      }),
+    );
     let tareas: Array<{ id: number; titulo: string; desde?: string }> = [];
     try {
       const access = await resolveAzureAccess({ dataDir });
@@ -86,6 +101,7 @@ export async function runAlerts(a: Argv, dataDir?: string): Promise<void> {
   const browserJob = (async () => {
     let google: boolean | undefined;
     let sinClasificar: number | undefined;
+    let avisosAzure: Array<{ organization: string; expiresOn: string }> | undefined;
     if (a.has("--no-browser")) return { google, sinClasificar };
     try {
       const ctx = await openSharedBrowser({ headless: true, dataDir });
@@ -97,11 +113,14 @@ export async function runAlerts(a: Argv, dataDir?: string): Promise<void> {
       if (google) {
         const cal = calendarDay(await downloadCalendarExport({ dataDir }), today, { rules: await loadMeetingRules(dataDir) });
         sinClasificar = cal.events.filter((e) => e.reunion === null && !e.allDay).length;
+        // Correos de Azure: completar vencimientos desconocidos y traer avisos "nearing expiration".
+        const mail = await applyPatExpiriesFromMail(dataDir, undefined, { days: 14, max: 5 }).catch(() => undefined);
+        avisosAzure = mail?.avisosDeAzure;
       }
     } catch (e) {
       errores.google = short(e);
     }
-    return { google, sinClasificar };
+    return { google, sinClasificar, avisosAzure };
   })();
 
   const [ripor, azure, browser] = await Promise.all([riporJob, azureJob, browserJob]);
@@ -118,6 +137,7 @@ export async function runAlerts(a: Argv, dataDir?: string): Promise<void> {
     finJornadaHHmm: finMenos30,
     ripor,
     pats: azure.pats,
+    avisosAzure: browser.avisosAzure,
     tareasEnCurso: azure.tareas,
     diasEstancada: Number(a.arg("--stale-days") ?? 7),
     eventosSinClasificar: browser.sinClasificar,

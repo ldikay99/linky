@@ -91,7 +91,17 @@ export async function runAzureCommand(sub: string | undefined, a: Argv, dataDir?
       { organizationUrl, auth: "pat", label: a.arg("--label"), expiresOn: a.arg("--expires") },
       { primary: a.has("--primary"), dataDir },
     );
-    print({ ok: true, organizationUrl, user, primary: reg.primary, backend: store.backend });
+    // Vencimiento: si no se indicó, leerlo del correo que Azure envía al crear el token (sin preguntar).
+    let vence = a.arg("--expires");
+    if (!vence) {
+      try {
+        const { applyPatExpiriesFromMail } = await import("./patMailCmd.js");
+        vence = (await applyPatExpiriesFromMail(dataDir, organizationUrl)).actualizados[0]?.vence;
+      } catch {
+        vence = undefined; // sin sesión de Google o sin correo: se detecta al fallar el token
+      }
+    }
+    print({ ok: true, organizationUrl, user, primary: reg.primary, vence: vence ?? "(se detectará por correo o al fallar el token)", backend: store.backend });
     return;
   }
 
@@ -107,6 +117,11 @@ export async function runAzureCommand(sub: string | undefined, a: Argv, dataDir?
   }
 
   if (sub === "expires") {
+    if (a.has("--from-mail")) {
+      const { applyPatExpiriesFromMail } = await import("./patMailCmd.js");
+      print(await applyPatExpiriesFromMail(dataDir, orgArg));
+      return;
+    }
     const date = a.arg("--date");
     if (!orgArg || !date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("azure expires --org https://dev.azure.com/<org> --date YYYY-MM-DD");
     const reg = await loadAzureOrgs(dataDir);

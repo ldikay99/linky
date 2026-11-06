@@ -27,7 +27,12 @@ const MONTHS: Record<string, number> = {
 
 /** "mié, 2 sept 2026, 18:02" / "Wed, Sep 2, 2026, 6:02 PM" → "2026-09-02" (fecha del título de la fila). */
 export function gmailTitleYmd(title: string): string | undefined {
-  const t = title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  // Sin el d\u00eda de la semana del inicio ("mar," = martes, no marzo).
+  const t = title
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/^\s*[a-z]{2,4}\.?,\s*/, "");
   const year = /\b(20\d{2})\b/.exec(t)?.[1];
   const month = /\b(ene|jan|feb|mar|abr|apr|may|jun|jul|ago|aug|sept|sep|oct|nov|dic|dec)[a-z]*\.?/.exec(t)?.[1];
   const rest = t.replace(/\b20\d{2}\b/, " ").replace(/\d{1,2}:\d{2}/g, " ");
@@ -98,6 +103,53 @@ export async function gmailDay(input: { dateYmd: string; box?: MailBox; timeZone
       result = rows;
     }
     return result;
+  } catch (e) {
+    throw safeBrowserError(e, "Gmail");
+  } finally {
+    await context.close().catch(() => undefined);
+  }
+}
+
+/**
+ * Busca en Gmail y abre cada resultado para leer su cuerpo (solo lectura). Pensado para correos
+ * de sistema (p. ej. avisos de Azure), con límite de mensajes.
+ */
+export async function gmailSearchMessages(input: { query: string; max?: number; dataDir?: string }): Promise<Array<{ subject: string; received?: string; body: string }>> {
+  const context = await openSharedBrowser({ headless: true, dataDir: input.dataDir });
+  try {
+    if (!(await hasGoogleSession(context))) throw new Error("No hay sesión de Google en el perfil de Linky. Ejecuta: npm run linky -- google login");
+    const page = context.pages()[0] ?? (await context.newPage());
+    await page.goto("https://mail.google.com/mail/u/0/#inbox", { waitUntil: "domcontentloaded" });
+    const box = page.locator('input[name="q"]');
+    await box.waitFor({ timeout: 45_000 });
+    let searched = false;
+    for (let i = 0; i < 4 && !searched; i++) {
+      await box.fill(input.query);
+      await box.press("Enter");
+      searched = await page.waitForURL((u) => u.hash.startsWith("#search/"), { timeout: 6_000 }).then(() => true).catch(() => false);
+    }
+    if (!searched) throw new Error("Gmail no aplicó la búsqueda; reintenta.");
+    const rows = page.locator('[role="main"] tr.zA:visible');
+    const found = await Promise.race([
+      rows.first().waitFor({ timeout: 25_000 }).then(() => true),
+      page.locator("td.TC:visible").first().waitFor({ timeout: 25_000 }).then(() => false),
+    ]).catch(() => false);
+    if (!found) return [];
+    await page.waitForTimeout(1_000);
+    const out: Array<{ subject: string; received?: string; body: string }> = [];
+    const n = Math.min(await rows.count(), input.max ?? 10);
+    for (let i = 0; i < n; i++) {
+      const row = rows.nth(i);
+      const subject = ((await row.locator(".bog").innerText().catch(() => "")) || "").trim();
+      const received = (await row.locator(".xW span[title]").getAttribute("title").catch(() => null)) ?? undefined;
+      await row.click();
+      const bodyLoc = page.locator(".a3s:visible").last();
+      await bodyLoc.waitFor({ timeout: 15_000 }).catch(() => undefined);
+      out.push({ subject, received, body: (await bodyLoc.innerText().catch(() => "")).replace(/\r/g, "") });
+      await page.goBack().catch(() => undefined);
+      await rows.first().waitFor({ timeout: 15_000 }).catch(() => undefined);
+    }
+    return out;
   } catch (e) {
     throw safeBrowserError(e, "Gmail");
   } finally {

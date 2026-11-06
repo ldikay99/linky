@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "linky": {
+      "command": "node",
+      "args": ["node_modules/tsx/dist/cli.mjs", "agent/lib/mcp/server.ts"]
+    }
+  }
+}
