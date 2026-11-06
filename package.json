@@ -19,7 +19,8 @@
     "demo:mock": "tsx scripts/demo-mock.ts",
     "demo:ripor": "tsx scripts/demo-ripor-mock.ts",
     "scan": "tsx scripts/scan-secrets.ts",
-    "prepare": "node -e \"try{require('child_process').execSync('git config core.hooksPath .githooks',{stdio:'ignore'})}catch{}\""
+    "prepare": "node -e \"try{require('child_process').execSync('git config core.hooksPath .githooks',{stdio:'ignore'})}catch{}\"",
+    "contribute": "tsx scripts/contribute.ts"
   },
   "dependencies": {
     "@napi-rs/keyring": "^2.1.2",

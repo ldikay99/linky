@@ -55,7 +55,7 @@ export async function resolveAzureAccess(opts: { org?: string; dataDir?: string 
   throw new Error(`Sin acceso a ${organizationUrl}: azure connect --org ${organizationUrl} (PAT) o azure login --org ${organizationUrl}.`);
 }
 
-async function whoAmI(organizationUrl: string, auth: Pick<AzureAuth, "pat" | "cookie">): Promise<string> {
+export async function whoAmI(organizationUrl: string, auth: Pick<AzureAuth, "pat" | "cookie">): Promise<string> {
   const res = await fetch(`${organizationUrl}/_apis/connectionData`, {
     headers: { ...azureAuthHeaders(auth), accept: "application/json" },
     redirect: "manual",

@@ -4,7 +4,7 @@
  * no por nombre, para que sirva con cualquier proceso. El texto sale de plantillas que cada persona
  * ajusta a su área (`chat template`).
  */
-import { readDayActivity } from "../azure/activity.js";
+import { readDayActivity, type DayActivityReport } from "../azure/activity.js";
 import { assertAzureAuthenticated, azureAuthHeaders, type AzureAuth } from "../azure/client.js";
 import { validateOrganizationUrl } from "../security/orgUrl.js";
 
@@ -100,12 +100,14 @@ export async function deliveredOn(input: {
   organizationUrl: string;
   auth: Pick<AzureAuth, "pat" | "cookie">;
   dateYmd: string;
+  /** Actividad ya leída (evita repetir las consultas). */
+  day?: DayActivityReport;
   fetchImpl?: Fetch;
 }): Promise<TaskLine[]> {
   const org = validateOrganizationUrl(input.organizationUrl).organizationUrl;
   const doFetch = input.fetchImpl ?? fetch;
   const headers = { ...azureAuthHeaders(input.auth), accept: "application/json" };
-  const day = await readDayActivity({ organizationUrl: org, auth: input.auth, dateYmd: input.dateYmd, fetchImpl: input.fetchImpl });
+  const day = input.day ?? await readDayActivity({ organizationUrl: org, auth: input.auth, dateYmd: input.dateYmd, fetchImpl: input.fetchImpl });
   const changed = day.items.filter((i) => i.type === "Task" && i.stateChanges.length);
   const cats = await stateCategories(doFetch, org, headers, [...new Set(changed.map((i) => i.project))]);
   return changed

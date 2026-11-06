@@ -95,7 +95,10 @@ export async function runChatCommand(sub: string | undefined, a: Argv, dataDir?:
       // "\n" escrito literalmente en la terminal = salto de línea.
       if (v !== undefined) templates[key] = v.replace(/\\n/g, "\n");
     }
-    await saveChatConfig({ ...cfg, templates }, dataDir);
+    // Sin argumentos solo muestra el formato actual; no guarda.
+    if (["inicio", "cierre", "item", "vacio"].some((k) => a.arg(`--${k}`) !== undefined)) {
+      await saveChatConfig({ ...cfg, templates }, dataDir);
+    }
     const sample = { id: 1234, title: "Ejemplo de tarea", state: "En curso", category: "InProgress", project: "Proyecto", url: "https://example.com" };
     print({
       templates: { ...DEFAULT_CHAT_TEMPLATES, ...templates },

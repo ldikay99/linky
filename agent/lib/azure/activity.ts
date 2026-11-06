@@ -111,8 +111,17 @@ export async function readDayActivity(input: {
   );
 
   const items: DayActivityItem[] = [];
+  // Historial de cambios en paralelo (de a 6) para que la consulta del día sea rápida.
+  const updatesById = new Map<number, Update[]>();
+  for (let i = 0; i < batch.value.length; i += 6) {
+    const chunk = batch.value.slice(i, i + 6);
+    const results = await Promise.all(
+      chunk.map((wi) => get<{ value: Update[] }>(`${org}/_apis/wit/workItems/${wi.id}/updates?api-version=7.1`)),
+    );
+    chunk.forEach((wi, k) => updatesById.set(wi.id, results[k].value));
+  }
   for (const wi of batch.value) {
-    const updates = await get<{ value: Update[] }>(`${org}/_apis/wit/workItems/${wi.id}/updates?api-version=7.1`);
+    const updates = { value: updatesById.get(wi.id) ?? [] };
     const mine = updates.value.filter((u) => {
       const changed = u.fields?.["System.ChangedDate"]?.newValue;
       return u.revisedBy?.id === me.id && typeof changed === "string" && localYmd(changed, timeZone) === input.dateYmd;
