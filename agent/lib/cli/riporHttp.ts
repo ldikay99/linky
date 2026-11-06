@@ -9,6 +9,7 @@ import { createMockRiporUiAdapter } from "../browser/adapter.js";
 import { linkyDataDir } from "../security/paths.js";
 import { loadOrEmptyRiporProfile } from "../ripor/profileStore.js";
 import { expectedHoursForDate } from "../ripor/schedule.js";
+import { workTimeZone } from "../planning/schedule.js";
 import { loadRiporJournal, reconcileRiporJournalEntry } from "../ripor/journal.js";
 import { readHiddenPrompt } from "../security/hiddenInput.js";
 import type { RiporSetupInput } from "../ripor/setup.js";
@@ -63,8 +64,9 @@ export function argvHelpers(argv = process.argv): Argv {
 }
 
 /** Fecha local del dispositivo (zona/reloj del equipo). */
+/** "Hoy" en la zona de la jornada (Colombia por defecto), no en la del equipo. */
 export function todayLocalYmd(now = new Date()): string {
-  return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: workTimeZone(), year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
 }
 
 export function futureDateBlocker(dateYmd: string, now = new Date()): string | undefined {
@@ -122,6 +124,10 @@ export function draftPayloadFromFlags(a: Argv, profile: RiporProfile, now = new 
   if (underReason !== undefined && a.arg("--hours") === undefined) {
     throw new Error("--under-hours requiere --hours explícito (petición limitada a fecha + cantidad).");
   }
+  const nonWorkday = a.has("--trabajo-extra");
+  if (nonWorkday && a.arg("--hours") === undefined) {
+    throw new Error("--trabajo-extra (fin de semana o festivo trabajado) requiere --hours con las horas que la persona indicó.");
+  }
   const transport = a.arg("--transporte");
   const draft = fillDraftDefaults(
     {
@@ -135,6 +141,7 @@ export function draftPayloadFromFlags(a: Argv, profile: RiporProfile, now = new 
       transportIsDailyOverride: Boolean(transport) && transport !== profile.defaultTransport?.label,
       explicitUnderHoursRequest:
         underReason !== undefined ? { dateYmd, hours, reason: underReason || undefined } : undefined,
+      nonWorkdayConfirmed: nonWorkday || undefined,
     },
     profile,
   );

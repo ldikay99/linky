@@ -1,5 +1,13 @@
 import type { LinkyProfile, ScheduleProfile } from "../types.js";
 
+/**
+ * Zona horaria de la jornada (Ripor, festivos y Azure se cuentan en hora de Colombia), no la del equipo:
+ * un WSL, contenedor o equipo en UTC no debe cambiar "hoy". `LINKY_TZ` la cambia si hiciera falta.
+ */
+export function workTimeZone(): string {
+  return process.env.LINKY_TZ?.trim() || "America/Bogota";
+}
+
 export function todayInBogota(now = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Bogota",

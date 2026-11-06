@@ -195,8 +195,9 @@ async function cmdApply() {
   const previewFile = arg("--preview");
   if (!previewFile) throw new Error("Falta --preview <json>");
   const preview = await readJson<ApplyPreview>(previewFile);
-  const hash = arg("--snapshot") ?? preview.snapshotHash;
-  if (!hash) throw new Error("Falta snapshotHash (--snapshot o en el preview).");
+  // El hash que la persona aprobó es obligatorio: sin él se aplicaría lo que haya en el archivo en ese momento.
+  const hash = arg("--snapshot");
+  if (!hash) throw new Error("Falta --snapshot <hash del preview que la persona aprobó>.");
   const { client, mode, profile } = await loadClientForProfile();
   const result = await applyPreview(
     client,
@@ -359,11 +360,13 @@ async function cmdRiporApply() {
   if (!has("--approve")) throw new Error("Ripor apply requiere --approve.");
   const by = arg("--by");
   if (!by) throw new Error("Falta --by <quien-aprueba>");
-  const previewFile = arg("--preview");
-  if (!previewFile) throw new Error("Falta --preview <json>");
+  // Sin --preview: el último preview (o el de borrado). Es seguro porque el hash aprobado debe coincidir.
+  const previewFile =
+    arg("--preview") ??
+    path.join(linkyDataDir(dataDir()), has("--delete-confirmed") ? "last-ripor-delete-preview.json" : "last-ripor-preview.json");
   const preview = await readJson<Awaited<ReturnType<typeof previewRiporMutation>>>(previewFile);
-  const hash = arg("--snapshot") ?? preview.snapshotHash;
-  if (!hash) throw new Error("Falta snapshotHash.");
+  const hash = arg("--snapshot");
+  if (!hash) throw new Error("Falta --snapshot <hash del preview que la persona aprobó>.");
   const profile = await loadRiporProfile(dataDir());
   if (!profile?.setupComplete) throw new Error("Falta ripor setup: npm run linky -- ripor login → ripor catalog --from-date <día ya reportado> → ripor setup");
 

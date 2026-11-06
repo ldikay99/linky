@@ -38,7 +38,8 @@ export function proposeHours(input: {
 }): HoursProposal {
   const avisos: string[] = [];
   const fixed = input.fixed ?? {};
-  const pendiente = Math.max(0, quarter(input.jornada - input.yaRegistradas - input.reunionesConfirmadas));
+  // Hacia abajo: redondear lo pendiente nunca puede llevar el día por encima de la jornada.
+  const pendiente = Math.max(0, Math.floor((input.jornada - input.yaRegistradas - input.reunionesConfirmadas) * 4 + 1e-9) / 4);
   const fixedTotal = Object.values(fixed).reduce((s, h) => s + h, 0);
   if (fixedTotal > pendiente + 1e-9) avisos.push(`Las horas fijadas (${fixedTotal} h) superan lo pendiente (${pendiente} h): revisar con la persona.`);
 
@@ -49,12 +50,19 @@ export function proposeHours(input: {
   const props = new Map<number, number>();
   for (const [id, h] of Object.entries(fixed)) props.set(Number(id), quarter(h));
   if (weightTotal > 0 && remaining > 0) {
-    let assigned = 0;
+    // Reparto en cuartos de hora por restos mayores: la suma es EXACTAMENTE lo pendiente (nunca más).
+    const totalQ = Math.floor(remaining * 4 + 1e-9);
+    const exact = distributable.map((t) => (totalQ * Math.max(1, t.activity)) / weightTotal);
+    const q = exact.map(Math.floor);
+    let left = totalQ - q.reduce((s, x) => s + x, 0);
+    const order = exact.map((x, i) => ({ i, frac: x - Math.floor(x) })).sort((a, b) => b.frac - a.frac || a.i - b.i);
+    for (const { i } of order) {
+      if (left <= 0) break;
+      q[i] += 1;
+      left -= 1;
+    }
     distributable.forEach((t, i) => {
-      const share = i === distributable.length - 1 ? remaining - assigned : quarter((remaining * Math.max(1, t.activity)) / weightTotal);
-      const h = Math.max(0, quarter(share));
-      props.set(t.id, (props.get(t.id) ?? 0) + h);
-      assigned += h;
+      if (q[i] > 0) props.set(t.id, (props.get(t.id) ?? 0) + q[i] / 4);
     });
   } else if (remaining > 0 && !distributable.length) {
     avisos.push(`Quedan ${remaining} h sin Tasks donde repartir: preguntar a la persona en qué trabajó.`);

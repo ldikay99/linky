@@ -192,7 +192,13 @@ export function evaluateRiporPolicy(input: {
   const blockers: string[] = [];
   const notes: string[] = [];
   const decisions: string[] = [];
-  const expected = expectedHoursForDate(input.dateYmd, schedule);
+  // Fin de semana o festivo trabajado y pedido por la persona: se reportan sus horas, nunca más de una jornada.
+  const nonWorkday = !isWorkday(input.dateYmd) || Boolean(holidayName(input.dateYmd, input.profile.extraHolidays));
+  const extraDay = nonWorkday && input.draft?.nonWorkdayConfirmed === true && input.op !== "delete";
+  const existingForExtra = sumExistingHoursStrict(input.existingSameDay, { dateYmd: input.dateYmd });
+  const expected = extraDay
+    ? Math.min((existingForExtra.ok ? existingForExtra.total : 0) + (input.draft?.hours ?? 0), schedule.expectedHoursMonThu)
+    : expectedHoursForDate(input.dateYmd, schedule);
   const targetId = input.reportId;
 
   const sumAll = sumExistingHoursStrict(input.existingSameDay, { dateYmd: input.dateYmd });
@@ -253,12 +259,17 @@ export function evaluateRiporPolicy(input: {
 
   // Festivo (Colombia + extra configurados): no se reporta, igual que fin de semana.
   const holiday = isWorkday(input.dateYmd) ? holidayName(input.dateYmd, input.profile.extraHolidays) : undefined;
-  if (holiday) {
+  if (extraDay) {
+    notes.push(`Día no laborable (${holiday ? `festivo: ${holiday}` : "fin de semana"}) trabajado: se reporta porque la persona lo pidió; tope ${schedule.expectedHoursMonThu} h.`);
+    if ((input.draft?.hours ?? 0) > schedule.expectedHoursMonThu + 1e-9) {
+      blockers.push(`Trabajo extra: ${input.draft?.hours} h supera una jornada completa (${schedule.expectedHoursMonThu} h).`);
+    }
+  } else if (holiday) {
     blockers.push(`Festivo (${holiday}): no se reporta en Ripor.`);
   }
 
-  // Weekend: under NO bypass
-  if (!isWorkday(input.dateYmd)) {
+  // Weekend: under NO bypass (salvo trabajo extra confirmado por la persona)
+  if (!isWorkday(input.dateYmd) && !extraDay) {
     blockers.push(
       "Fin de semana / no laboral: create/update bloqueados. Under-hours no habilita weekend (sin campo weekend-exception).",
     );

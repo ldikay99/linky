@@ -105,6 +105,11 @@ export type RiporDraftFields = {
    * dateYmd DEBE coincidir con la fecha de la mutación (vinculada).
    */
   explicitUnderHoursRequest?: { dateYmd: string; hours: number; reason?: string };
+  /**
+   * Fin de semana o festivo que la persona SÍ trabajó y pidió reportar (no se exige ni se llena por defecto).
+   * Las horas son las que ella indica, con tope de una jornada completa.
+   */
+  nonWorkdayConfirmed?: boolean;
   /** Ausencia / festivo / sin trabajo: no crear inventando */
   skipDay?: boolean;
   skipReason?: string;

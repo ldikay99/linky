@@ -8,6 +8,7 @@ import { hasGoogleSession } from "../chat/browser.js";
 import { eventsOnDate, parseIcs, type DayEvent } from "./ics.js";
 import { unzipEntries } from "./zip.js";
 import { classifyEvent, type MeetingRules } from "./meetings.js";
+import { workTimeZone } from "../planning/schedule.js";
 
 const EXPORT_URL = "https://calendar.google.com/calendar/exporticalzip";
 
@@ -65,7 +66,7 @@ export function calendarDay(
   dateYmd: string,
   opts?: { timeZone?: string; allCalendars?: boolean; rules?: MeetingRules },
 ): CalendarDay {
-  const tz = opts?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const tz = opts?.timeZone ?? workTimeZone();
   const primary = primaryCalendar(files);
   const account = primary?.name;
   const holidays: string[] = [];

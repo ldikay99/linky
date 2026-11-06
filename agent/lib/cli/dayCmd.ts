@@ -16,6 +16,7 @@ import { loadRiporProfile } from "../ripor/profileStore.js";
 import { expectedHoursForDate, isWorkday } from "../ripor/schedule.js";
 import { resolveAzureAccess } from "./azureCmd.js";
 import { futureDateBlocker, openRiporHttpFresh, todayLocalYmd, type argvHelpers } from "./riporHttp.js";
+import { workTimeZone } from "../planning/schedule.js";
 
 type Argv = ReturnType<typeof argvHelpers>;
 
@@ -96,7 +97,7 @@ export async function runDay(a: Argv, dataDir?: string): Promise<void> {
   const reported = riporReports?.reduce((s, r) => s + (Number.isFinite(r.hours) ? r.hours : 0), 0);
   const holidays = calendar?.holidays ?? [];
   const workday = isWorkday(dateYmd) && !holidays.length;
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const tz = workTimeZone();
 
   const pasos: string[] = [];
   if (!reg.orgs.length || !riporProfile?.setupComplete) {

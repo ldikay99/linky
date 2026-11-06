@@ -175,13 +175,13 @@ export function createHttpAzureClient(auth: AzureAuth, fetchImpl: typeof fetch =
     },
 
     async updateWorkItem(id, patch, opts) {
-      const headers: Record<string, string> = {};
-      if (opts?.ifMatchRev != null) headers["If-Match"] = String(opts.ifMatchRev);
+      // Control de concurrencia de Azure para work items: operación `test` sobre /rev (If-Match no aplica aquí).
+      // Si el item cambió desde el preview, Azure rechaza todo el patch y no se escribe nada.
+      const body = opts?.ifMatchRev != null ? [{ op: "test", path: "/rev", value: opts.ifMatchRev }, ...patch] : patch;
       const res = await api(`/${project}/_apis/wit/workitems/${id}?api-version=7.1`, {
         method: "PATCH",
         contentType: "application/json-patch+json",
-        body: JSON.stringify(patch),
-        headers,
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(`updateWorkItem HTTP ${res.status}: ${await res.text()}`);
       return (await res.json()) as WorkItem;

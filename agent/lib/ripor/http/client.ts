@@ -74,6 +74,9 @@ export function createRiporHttpClient(
 
   async function readJsonOrExpire(res: Response, what: string): Promise<unknown> {
     const text = await res.text();
+    // Un 5xx (también la página HTML de un proxy) puede llegar DESPUÉS de ejecutar la acción: es incierto, no
+    // "sesión vencida". Solo el HTML de una respuesta no-5xx es la página de login.
+    if (res.status >= 500) throw new Error(`${what}: HTTP ${res.status} (resultado incierto)`);
     if (/^\s*</.test(text)) throw new RiporSessionExpiredError(`${what} devolvió HTML (probable login)`);
     if (!res.ok) throw new Error(`${what}: HTTP ${res.status}`);
     try {

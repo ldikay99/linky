@@ -6,6 +6,7 @@
 import { azureReadJson } from "./http.js";
 import { validateOrganizationUrl } from "../security/orgUrl.js";
 import { azureAuthHeaders, type AzureAuth } from "./client.js";
+import { workTimeZone } from "../planning/schedule.js";
 
 export type DayActivityItem = {
   id: number;
@@ -62,7 +63,7 @@ export async function readDayActivity(input: {
 }): Promise<DayActivityReport> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.dateYmd)) throw new Error(`Fecha inválida: ${input.dateYmd}`);
   const org = validateOrganizationUrl(input.organizationUrl).organizationUrl;
-  const timeZone = input.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const timeZone = input.timeZone ?? workTimeZone();
   const doFetch = input.fetchImpl ?? fetch;
   const headers = { ...azureAuthHeaders(input.auth), accept: "application/json" };
 

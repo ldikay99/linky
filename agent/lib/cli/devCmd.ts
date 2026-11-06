@@ -8,6 +8,7 @@ import { commitsOn, defaultAuthorEmails, findRepos, hasRecentCommits, loadDevCon
 import { azureProjectsFromBases, azurePullRequestsOn, type PullRequestItem } from "../dev/prs.js";
 import { resolveAzureAccess } from "./azureCmd.js";
 import { todayLocalYmd, type argvHelpers } from "./riporHttp.js";
+import { workTimeZone } from "../planning/schedule.js";
 
 type Argv = ReturnType<typeof argvHelpers>;
 
@@ -24,7 +25,7 @@ function remoteBase(repo: string): string | undefined {
 export async function devDay(dateYmd: string, dataDir?: string): Promise<{ commits: Commit[]; prs: PullRequestItem[]; errores: string[] } | undefined> {
   const cfg = await loadDevConfig(dataDir);
   if (!cfg?.repos.length) return undefined;
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const tz = workTimeZone();
   const errores: string[] = [];
   const commits = commitsOn({ repos: cfg.repos, authorEmails: cfg.authorEmails, dateYmd, timeZone: tz });
   const bases = cfg.repos.map(remoteBase).filter((b): b is string => Boolean(b));

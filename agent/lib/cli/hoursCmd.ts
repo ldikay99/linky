@@ -8,6 +8,7 @@ import path from "node:path";
 import { readDayActivity } from "../azure/activity.js";
 import { azureAuthHeaders, createHttpAzureClient } from "../azure/client.js";
 import { parseFixedHours, proposeHours, type HoursProposal } from "../azure/hours.js";
+import { loadAzureOrgs } from "../azure/orgs.js";
 import { azureReadJson } from "../azure/http.js";
 import { beginPending, getJournal, isUncertainError, markCompleted, markFailed, markUnknown } from "../apply/idempotency.js";
 import { calendarDay, downloadCalendarExport } from "../calendar/export.js";
@@ -131,7 +132,23 @@ export async function runAzureHours(a: Argv, dataDir?: string): Promise<void> {
     }
   }
 
-  const proposal = proposeHours({ dateYmd, jornada, yaRegistradas: day.completedWorkHours, reunionesConfirmadas: reuniones, tasks, fixed, meetingsTaskId });
+  // La jornada es del día completo: sumar lo ya registrado en las OTRAS organizaciones conectadas.
+  let otrasOrgs = 0;
+  for (const o of (await loadAzureOrgs(dataDir)).orgs) {
+    if (o.organizationUrl === access.organizationUrl) continue;
+    try {
+      const other = await resolveAzureAccess({ org: o.organizationUrl, dataDir });
+      const h = (await readDayActivity({ organizationUrl: other.organizationUrl, auth: other.auth, dateYmd })).completedWorkHours;
+      if (h > 0) {
+        otrasOrgs += h;
+        avisosExtra.push(`${h} h ya registradas ese día en ${o.organizationUrl} cuentan para la jornada.`);
+      }
+    } catch (e) {
+      avisosExtra.push(`No se pudo leer ${o.organizationUrl} (${String((e as Error).message).split("\n")[0]}): sus horas no se descuentan; revisar con la persona.`);
+    }
+  }
+
+  const proposal = proposeHours({ dateYmd, jornada, yaRegistradas: day.completedWorkHours + otrasOrgs, reunionesConfirmadas: reuniones, tasks, fixed, meetingsTaskId });
   proposal.avisos.push(...avisosExtra);
   if (!laborable) proposal.avisos.push("Día no laborable (fin de semana o festivo): jornada 0 h.");
   const file: HoursPreviewFile = { proposal, organizationUrl: access.organizationUrl, snapshotHash: hashOf(proposal), createdAt: new Date().toISOString() };
