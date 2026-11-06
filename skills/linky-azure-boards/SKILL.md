@@ -71,6 +71,23 @@ valor explícito de la actividad (`fields`) → `azure.taskFieldDefaults` del pe
 hermanas** de la misma HU. Siempre valida contra los valores permitidos. Si el proceso exige estimación y la tarea
 ya está hecha, usa la hora real y lo indica en el preview.
 
+## Horas reales
+
+```bash
+npm run linky -- azure hours --date YYYY-MM-DD [--set 558412=2,558413=1,5] [--meetings-task <id>]
+npm run linky -- azure hours --apply --approve --snapshot <hash>    # tras el "sí" de la persona
+```
+
+Pendiente = jornada − horas ya registradas ese día en Azure − reuniones **confirmadas**. Se reparte solo entre Tasks
+que la persona tocó ese día (cambios de estado, comentarios, commits `AB#`), en cuartos de hora. Si no hay Tasks del
+día, no reparte: pregunta. Las reuniones confirmadas van a la Task que indique la persona (`--meetings-task`).
+El apply revalida que la Task no haya cambiado y usa control de revisión; repetirlo no duplica.
+
+## Sin fechas en descripciones
+
+Las descripciones de HU/Tasks no llevan fechas (la fecha de la Task es su campo). Linky lo valida y su marcador
+interno de reconciliación no contiene fechas.
+
 ## Eliminar
 
 Solo si el usuario lo pide explícitamente: `npm run linky -- azure delete --id <n>` (muestra qué es) y, tras su

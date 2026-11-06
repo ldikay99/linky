@@ -187,6 +187,8 @@ export type DayEvent = {
   start: string;
   end: string;
   allDay: boolean;
+  /** Duración en minutos (0 si es de todo el día). */
+  minutes: number;
   recurring: boolean;
   meetUrl?: string;
   attachments: IcsAttachment[];
@@ -260,6 +262,7 @@ export function eventsOnDate(events: IcsEvent[], dateYmd: string, tz: string, se
       start: e.start.allDay ? "todo el día" : hhmm(startMs, tz),
       end: e.start.allDay ? "" : hhmm(startMs + duration, tz),
       allDay: e.start.allDay,
+      minutes: e.start.allDay ? 0 : Math.round(duration / 60_000),
       recurring: Boolean(e.rrule || e.recurrenceId != null),
       meetUrl: e.meetUrl,
       attachments: e.attachments,

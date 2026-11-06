@@ -1,6 +1,6 @@
 {
   "name": "linky",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "imports": {
     "#*": "./agent/*",
@@ -20,7 +20,8 @@
     "demo:ripor": "tsx scripts/demo-ripor-mock.ts",
     "scan": "tsx scripts/scan-secrets.ts",
     "prepare": "node -e \"try{require('child_process').execSync('git config core.hooksPath .githooks',{stdio:'ignore'})}catch{}\"",
-    "contribute": "tsx scripts/contribute.ts"
+    "contribute": "tsx scripts/contribute.ts",
+    "mcp": "tsx agent/lib/mcp/server.ts"
   },
   "dependencies": {
     "@napi-rs/keyring": "^2.1.2",

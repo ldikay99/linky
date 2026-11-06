@@ -7,6 +7,7 @@ import { openSharedBrowser, safeBrowserError } from "../browser/shared.js";
 import { hasGoogleSession } from "../chat/browser.js";
 import { eventsOnDate, parseIcs, type DayEvent } from "./ics.js";
 import { unzipEntries } from "./zip.js";
+import { classifyEvent, type MeetingRules } from "./meetings.js";
 
 const EXPORT_URL = "https://calendar.google.com/calendar/exporticalzip";
 
@@ -53,7 +54,8 @@ export type CalendarDay = {
   dateYmd: string;
   timeZone: string;
   account?: string;
-  events: Array<DayEvent & { calendar: string }>;
+  /** reunion: true = confirmada, false = ignorada, null = sin confirmar (preguntar a la persona). */
+  events: Array<DayEvent & { calendar: string; reunion: boolean | null }>;
   holidays: string[];
   calendars: string[];
 };
@@ -61,7 +63,7 @@ export type CalendarDay = {
 export function calendarDay(
   files: CalendarFile[],
   dateYmd: string,
-  opts?: { timeZone?: string; allCalendars?: boolean },
+  opts?: { timeZone?: string; allCalendars?: boolean; rules?: MeetingRules },
 ): CalendarDay {
   const tz = opts?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   const primary = primaryCalendar(files);
@@ -75,7 +77,7 @@ export function calendarDay(
       continue;
     }
     if (!opts?.allCalendars && f !== primary) continue;
-    events.push(...day.map((e) => ({ ...e, calendar: f.name })));
+    events.push(...day.map((e) => ({ ...e, calendar: f.name, reunion: opts?.rules ? classifyEvent(e.title, opts.rules) : null })));
   }
   return { dateYmd, timeZone: tz, account, events, holidays, calendars: files.map((f) => f.name) };
 }

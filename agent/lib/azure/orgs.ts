@@ -12,7 +12,13 @@ import { validateOrganizationUrl } from "../security/orgUrl.js";
 import { LINKY_SECRET_ACCOUNT, LINKY_SECRET_SERVICE } from "../security/secrets.js";
 import type { SecretStore } from "../security/secretStore.js";
 
-export type AzureOrgEntry = { organizationUrl: string; auth: "pat" | "web"; label?: string };
+export type AzureOrgEntry = {
+  organizationUrl: string;
+  auth: "pat" | "web";
+  label?: string;
+  /** Vencimiento del PAT informado por la persona (YYYY-MM-DD), para avisar antes. */
+  expiresOn?: string;
+};
 export type AzureOrgRegistry = { primary?: string; orgs: AzureOrgEntry[] };
 
 const registryPath = (dataDir?: string) => path.join(linkyDataDir(dataDir), "azure-orgs.json");
@@ -36,9 +42,11 @@ export async function registerAzureOrg(
   const organizationUrl = validateOrganizationUrl(entry.organizationUrl).organizationUrl;
   const reg = await loadAzureOrgs(opts.dataDir);
   const others = reg.orgs.filter((o) => orgKey(o.organizationUrl) !== orgKey(organizationUrl));
+  const prev = reg.orgs.find((o) => orgKey(o.organizationUrl) === orgKey(organizationUrl));
   const next: AzureOrgRegistry = {
     primary: opts.primary || !reg.primary ? organizationUrl : reg.primary,
-    orgs: [...others, { ...entry, organizationUrl }],
+    // Conservar el vencimiento ya informado si esta vez no se indicó.
+    orgs: [...others, { ...entry, organizationUrl, expiresOn: entry.expiresOn ?? prev?.expiresOn }],
   };
   await mkdir(linkyDataDir(opts.dataDir), { recursive: true, mode: 0o700 });
   await writeFile(registryPath(opts.dataDir), JSON.stringify(next, null, 2), { encoding: "utf8", mode: 0o600 });

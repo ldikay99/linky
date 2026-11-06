@@ -18,7 +18,7 @@ export const DEFAULT_CHAT_TEMPLATES: ChatTemplates = {
   vacio: "—",
 };
 
-export type TaskLine = { id: number; title: string; state: string; category: string; project: string; url: string };
+export type TaskLine = { id: number; title: string; state: string; category: string; project: string; url: string; stateChangedAt?: string };
 
 type Fetch = typeof fetch;
 
@@ -65,7 +65,10 @@ export async function myOpenTasks(input: {
     doFetch,
     `${org}/_apis/wit/workitemsbatch?api-version=7.1`,
     headers,
-    { ids: wiql.workItems.slice(0, 200).map((w) => w.id), fields: ["System.Title", "System.State", "System.TeamProject"] },
+    {
+      ids: wiql.workItems.slice(0, 200).map((w) => w.id),
+      fields: ["System.Title", "System.State", "System.TeamProject", "Microsoft.VSTS.Common.StateChangeDate"],
+    },
   );
   const projects = [...new Set(batch.value.map((w) => String(w.fields["System.TeamProject"])))];
   const cats = await stateCategories(doFetch, org, headers, projects);
@@ -79,6 +82,7 @@ export async function myOpenTasks(input: {
       category: cats.get(project)?.get(state) ?? "",
       project,
       url: `${org}/${encodeURIComponent(project)}/_workitems/edit/${w.id}`,
+      stateChangedAt: typeof w.fields["Microsoft.VSTS.Common.StateChangeDate"] === "string" ? String(w.fields["Microsoft.VSTS.Common.StateChangeDate"]) : undefined,
     };
   });
   const open = lines.filter((l) => l.category === "InProgress" || l.category === "Proposed");

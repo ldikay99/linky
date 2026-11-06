@@ -20,6 +20,19 @@ transcripción y notas `application/vnd.google-apps.document`, chat `text/plain`
 descripción, organizador, asistentes y la respuesta de la persona (`ACCEPTED`, `NEEDS-ACTION`…). Las rechazadas y
 canceladas no aparecen. `holidays` lista festivos si la persona tiene ese calendario.
 
+## Reuniones confirmadas (obligatorio antes de contarlas)
+
+No todo evento es una reunión de trabajo (pausas activas, charlas, avisos). Solo cuenta lo que la persona confirmó:
+
+```bash
+npm run linky -- calendar meetings --date YYYY-MM-DD     # confirmadas / sin confirmar / ignoradas
+npm run linky -- calendar confirm --title "<texto>"      # p. ej. "Reunión de QA CRM", "Daily"
+npm run linky -- calendar ignore --title "<texto>"       # p. ej. "Pausa Activa"
+```
+
+La regla aplica por texto del título (sirve para recurrentes). Lo sin confirmar se pregunta; nunca se asume.
+`azure hours` y `day` solo cuentan las confirmadas.
+
 ## Descargar adjuntos
 
 ```bash

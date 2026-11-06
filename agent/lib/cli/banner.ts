@@ -31,8 +31,10 @@ export function renderBanner(opts?: { color?: boolean }): string {
     "",
     "   Onboarding:",
     "     1. Azure DevOps   →  azure connect --org <url> --primary   (PAT Full access · 90 días)",
-    "     2. Ripor          →  ripor login  ·  ripor catalog  ·  ripor setup",
-    "     3. Tu día         →  \"registra mi día con lo que hice en Azure\"",
+    "     2. Google         →  google login   (Chat, Calendar, Gmail y Ripor con Google)",
+    "     3. Ripor          →  ripor login  ·  ripor catalog  ·  ripor setup",
+    "     4. Revisión       →  doctor",
+    "     5. Tu día         →  \"registra mi día con lo que hice en Azure\"",
     "",
   ];
   return lines.join("\n");

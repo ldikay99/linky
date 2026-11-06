@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import type { EvidencePolicy } from "../types.js";
@@ -59,11 +60,19 @@ export function attachmentRelationPatch(attachmentUrl: string, comment?: string)
 }
 
 /** Marcador estable embebido para reconciliación (no es secreto). */
+/**
+ * Marcador oculto para reconciliar sin duplicar. Guarda un HASH de la clave (que incluye la fecha),
+ * así la descripción nunca contiene fechas.
+ */
+export function clientKeyToken(clientKey: string): string {
+  return createHash("sha256").update(clientKey).digest("hex").slice(0, 16);
+}
+
 export function linkyClientKeyMarker(clientKey: string): string {
-  return `<!--linky:clientKey=${clientKey}-->`;
+  return `<!--linky:k=${clientKeyToken(clientKey)}-->`;
 }
 
 export function extractClientKeyFromHtml(html: string): string | null {
-  const m = html.match(/<!--linky:clientKey=([^>]+)-->/);
+  const m = html.match(/<!--linky:k=([0-9a-f]+)-->/);
   return m?.[1] ?? null;
 }

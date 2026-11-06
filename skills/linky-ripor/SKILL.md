@@ -57,6 +57,23 @@ Transporte (valores oficiales del formulario): 🚗 Vehículo particular · 🏍
    npm run linky -- ripor apply --preview <out> --approve --by <usuario> --snapshot <hash>
    ```
 
+## Mes completo y festivos
+
+```bash
+npm run linky -- ripor month [--month YYYY-MM] [--suggest]
+```
+
+- Laborable = lunes a viernes que no es festivo de Colombia (Ley Emiliani, calculados sin red) ni festivo extra
+  configurado (`extraHolidays` en el perfil). Sábados, domingos y festivos **no se exigen ni se llenan**; si alguien
+  reportó horas ahí aparecen como `extra` y se respetan.
+- Ripor bloquea crear o editar en festivos y fines de semana.
+- `--suggest` propone el reporte de cada día pendiente desde Azure; para cada uno: `ripor preview --auto --date <día>`.
+
+## Sin fechas en la descripción
+
+La descripción nunca lleva fechas (`04/11`, `2026-11-04`, `4 de noviembre`…): la fecha es el día seleccionado del
+reporte. Linky bloquea el preview si encuentra una y las quita de las sugerencias automáticas.
+
 ## Corregir / borrar
 
 - Corregir: `ripor preview --update <reportId> …` (muestra antes/después) → aprobación → `ripor apply`.

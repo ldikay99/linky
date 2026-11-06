@@ -4,6 +4,7 @@
  */
 import { loadAzureOrgs } from "../azure/orgs.js";
 import { openSharedBrowser } from "../browser/shared.js";
+import { findOrphanBrowsers } from "../browser/cleanup.js";
 import { hasGoogleSession } from "../chat/browser.js";
 import { loadChatConfig } from "../chat/config.js";
 import { loadProfile } from "../profile/store.js";
@@ -86,6 +87,16 @@ export async function runDoctor(opts: { dataDir?: string; skipBrowser?: boolean 
   );
   const journal = riporJournalBlocksMutations(await loadRiporJournal(opts.dataDir));
   checks.push({ area: "ripor journal", ok: !journal.blocked, detail: journal.blocked ? journal.reason! : "sin operaciones pendientes", fix: journal.blocked ? "npm run linky -- ripor reconcile" : undefined });
+
+  // Procesos huérfanos (navegadores de Linky que quedaron vivos).
+  checks.push(
+    await attempt("procesos", async () => {
+      const orphans = findOrphanBrowsers(opts.dataDir);
+      return orphans.length
+        ? { ok: false, detail: `${orphans.length} navegador(es) de Linky huérfanos`, fix: "npm run linky -- cleanup" }
+        : { ok: true, detail: "sin navegadores huérfanos" };
+    }),
+  );
 
   // Google (Chat/Calendar) y chat configurado.
   if (!opts.skipBrowser) {

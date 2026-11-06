@@ -358,7 +358,11 @@ export async function riporSuggestion(a: Argv, profile: RiporProfile, dataDir?: 
     sustainedHours: activity.completedWorkHours,
     expectedHours,
   };
-  return { dateYmd, ...base, warnings: suggestionWarnings(base) };
+  // Para quien desarrolla: los PRs del día son evidencia alternativa (más concreta que la HU).
+  const { devDay } = await import("./devCmd.js");
+  const dev = await devDay(dateYmd, dataDir).catch(() => undefined);
+  const evidenciasAlternativas = dev?.prs.map((p) => ({ url: p.url, titulo: p.title, motivo: `PR ${p.event} ese día` })) ?? [];
+  return { dateYmd, ...base, evidenciasAlternativas, warnings: suggestionWarnings(base) };
 }
 
 /** `ripor preview --auto`: completa notas/evidencia/horas sustentadas con la sugerencia (lo explícito gana). */
@@ -370,4 +374,45 @@ export async function autoDraftPayload(a: Argv, profile: RiporProfile, dataDir?:
   if (!a.all("--evidence").length && s.evidence) argv.push("--evidence", s.evidence.url);
   if (!a.arg("--sustained")) argv.push("--sustained", String(Math.min(s.sustainedHours, s.expectedHours)));
   return { ...draftPayloadFromFlags(argvHelpers(argv), profile), warnings: s.warnings };
+}
+
+/** `ripor month`: días laborables del mes que faltan o están incompletos (festivos y fines de semana no se exigen). */
+export async function cmdRiporMonth(a: Argv, dataDir?: string) {
+  const profile = await loadOrEmptyRiporProfile(dataDir);
+  if (!profile.setupComplete) throw new Error("Falta ripor setup.");
+  const { classifyMonth, monthDays } = await import("../ripor/month.js");
+  const today = todayLocalYmd();
+  const monthYm = a.arg("--month") ?? today.slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(monthYm)) throw new Error("--month YYYY-MM");
+  const { adapter } = await openRiporHttpFresh(profile);
+  const days = monthDays(monthYm).filter((d) => d <= today);
+  const reportedByDay: Record<string, number> = {};
+  for (let i = 0; i < days.length; i += 6) {
+    const chunk = days.slice(i, i + 6);
+    const res = await Promise.all(chunk.map((d) => adapter.reportsForDate(d)));
+    chunk.forEach((d, k) => {
+      reportedByDay[d] = res[k].reduce((s, r) => s + (Number.isFinite(r.hours) ? r.hours : 0), 0);
+    });
+  }
+  const month = classifyMonth({ monthYm, todayYmd: today, reportedByDay, schedule: profile.schedule, extraHolidays: profile.extraHolidays });
+
+  let sugerencias: Array<Record<string, unknown>> | undefined;
+  if (a.has("--suggest") && month.totales.diasPendientes.length) {
+    sugerencias = [];
+    for (const d of month.totales.diasPendientes) {
+      try {
+        const s = await riporSuggestion(argvHelpers(["", "", "--date", d]), profile, dataDir);
+        sugerencias.push({ fecha: d, descripcion: s.notes, evidencia: s.evidence?.url, horasAzure: s.sustainedHours, avisos: s.warnings });
+      } catch (e) {
+        sugerencias.push({ fecha: d, error: String((e as Error).message).split("\n")[0] });
+      }
+    }
+  }
+  print({
+    mes: monthYm,
+    resumen: month.totales,
+    dias: month.dias.filter((d) => d.estado !== "futuro"),
+    sugerencias,
+    siguientes: month.totales.diasPendientes.map((d) => `npm run linky -- ripor preview --auto --date ${d}`),
+  });
 }

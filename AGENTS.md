@@ -2,42 +2,63 @@
 
 Autor: **Jonathan Contreras**.
 
-1. CLI `npm run linky`
-2. Skill: `skills/linky-azure-boards/SKILL.md`
-3. `agent/` (eve) opcional
+Linky registra el día de trabajo de la persona en **Azure DevOps**, **Ripor** y **Google Chat**, con evidencias de
+Calendar, Gmail y (si desarrolla) sus commits/PRs. Es un CLI local + skills + servidor MCP; no usa API keys y
+funciona con el asistente de IA que la persona prefiera.
+
+- Con MCP: `npm run linky -- mcp-config` imprime la configuración; las herramientas (`linky_day`, `ripor_preview`…)
+  reemplazan a los comandos de terminal.
+- Sin MCP: `npm run linky -- <comando>` (salida JSON).
+- Skills: `skills/linky-azure-boards`, `linky-ripor`, `linky-calendar`, `linky-mail`, `linky-chat`, `linky-dev`.
 
 ## Bienvenida (al iniciar el onboarding)
 
 Cuando entiendas el proyecto y empieces el onboarding con la persona, ejecuta `npm run linky -- welcome`
-y muestra su salida **tal cual, dentro de un bloque de código** (logo Linky y créditos a Jonathan Contreras).
-Linky no usa API keys: funciona con el asistente de IA que la persona prefiera.
+(o la herramienta `linky_welcome`) y muestra su salida **tal cual, dentro de un bloque de código** (logo Linky y
+créditos a Jonathan Contreras).
+
+## Onboarding (en este orden; preguntar solo lo que falte)
+
+1. `azure connect --org <url> --primary --expires <fecha>` (PAT oculto; recomendar Full access + 90 días). Más
+   organizaciones con su propio PAT. Luego `onboarding --answers <json>` con datos REALES de la persona.
+2. `google login` (una vez): habilita Chat, Calendar, Gmail y el login de Ripor con Google.
+3. `ripor login` → `ripor catalog --from-date <día ya reportado>` → `ripor setup` (proyecto de ÁREA ≠ proyectos Azure).
+4. `chat login` (chat de reporte) y `chat template` según cómo reporta su área.
+5. `calendar meetings`: preguntar cuáles eventos son reuniones de trabajo (`calendar confirm|ignore --title`).
+6. Si desarrolla: `dev scan --root <carpeta>` y quitar repos personales con `dev remove`.
+7. `doctor` para confirmar que todo quedó en verde.
+
+## Uso diario
+
+- `doctor`: estado y arreglo exacto de cada problema. Úsalo antes de diagnosticar a mano.
+- `alerts`: avisos proactivos (Ripor pendiente hoy/mes, PAT por vencer, Tasks estancadas, eventos sin clasificar).
+- `day [--date …] [--all] [--mail]`: todo el día en una llamada.
+- `ripor month [--suggest]`: días laborables pendientes del mes; `ripor preview --auto --date …` para cada uno.
+- `azure hours [--set id=h] [--meetings-task id]`: propuesta de horas reales por Task.
+
+## Reglas que no se rompen
+
+- **Aprobación**: toda escritura (Ripor, Azure, Chat) va con preview → mostrar a la persona → aplicar con su "sí"
+  (`--approve` + hash). Nunca saltar el preview.
+- **No inventar**: ni horas, ni tareas, ni reuniones, ni evidencias. Si falta información, preguntar.
+- **Sin fechas en descripciones** (Ripor y Azure): la fecha va solo en su campo. Linky lo bloquea.
+- **Jornada**: lunes a jueves 8,5 h, viernes 8 h. Festivos de Colombia, sábados y domingos no se exigen ni se llenan;
+  si la persona trabajó un fin de semana y lo pide, se respeta. Menos horas solo si la persona lo pide para esa fecha.
+- **Reuniones**: solo las que la persona confirmó (`calendar confirm`). Eventos generales (pausas, charlas) no cuentan.
+- **Organizaciones**: la principal por defecto; otra solo si la persona la pide.
+- **Sin procesos zombis**: Linky cierra sus navegadores al terminar o si se interrumpe. Si `doctor` o `alerts` reportan
+  navegadores huérfanos, ejecutar `cleanup` (solo toca el perfil de Linky). No dejar procesos propios corriendo.
+- **Incertidumbre = parar**: si una escritura queda incierta, reconciliar (`ripor reconcile`, revisar Azure) antes de
+  repetir. Nunca reintentar a ciegas.
 
 ## Secretos y PAT
 
-- Pedir token de forma segura la primera vez; keyring/env/session; nunca plaintext ni repo.
-- Expiry/scopes **user-reported**; recordar ≤7 días con tz/reloj del dispositivo.
-- Al crear el PAT recomendar **Full access** y **90 días** de vigencia (permite todo el flujo); confirmar una vez la amplitud (ack). Mínimo aceptable: Work Items Read & Write.
-- Nunca copiar tokens del chat a fixtures, git, zip o logs.
-
-## Cuentas
-
-- Azure: puede haber varias organizaciones; una es la **principal** (default). Otra solo si el usuario la pide (`azure connect/login/use`).
-- Ripor: una sesión por persona (`ripor login`). Navegador solo para login; el resto por petición directa. Si vence, se renueva sola.
-- Google Chat: `chat login` (una vez) y el chat de reporte elegido por la persona. Mensajes solo con borrador + aprobación (`skills/linky-chat`).
-- Gmail: `mail day` (enviados por defecto, `--received`, `--all`) como evidencia de lo hecho (`skills/linky-mail`).
-- Google Calendar: `calendar day` con la misma sesión de Google; reuniones, grabaciones, notas y fotos como evidencia (`skills/linky-calendar`).
-- Un solo perfil de navegador de Linky para Google, Ripor, Chat y Calendar (fuera del repo): la persona inicia sesión en Google una vez (`google login`). Para rotar esa sesión: `google logout` + `google login`.
-
-## Empezar rápido
-
-- `npm run linky -- doctor`: estado de todo y el arreglo exacto de cada problema. Úsalo antes de diagnosticar a mano.
-- `npm run linky -- day [--date …] [--all]`: todo el día en una llamada (Azure, reuniones, Ripor, borradores de chat, siguientes pasos).
+- Pedir el token de forma segura (entrada oculta); keyring/env/session; nunca plaintext ni repo.
+- Si la persona pega un token en el chat, guardarlo con `azure connect` (vía `LINKY_AZURE_PAT_INPUT`, nunca a archivos).
+- Vencimiento **informado por la persona** (`--expires`); Linky avisa ≤7 días antes con la zona del equipo.
+- Nunca copiar tokens, cookies ni datos personales a fixtures, git, zip, logs o al repo.
 
 ## Contribuir
 
 Si un ajuste sirve a todos (bug o ampliación, no configuración personal), hazlo con tests y, con aprobación de la
 persona, ejecuta `npm run contribute` (rama `contrib/<usuario>/<tema>` + PR). Ver `CONTRIBUTING.md`.
-
-## Operación
-
-Una config; preguntar solo faltantes; preview+approval; journal fail-closed; ejemplos solo sintéticos.
