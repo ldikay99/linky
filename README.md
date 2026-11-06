@@ -26,11 +26,16 @@ Linky es un **CLI con skills y servidor MCP** que cualquier asistente de IA pued
 - **Llena tu reporte de Ripor** con un resumen breve de ese trabajo, la evidencia correcta y las horas de tu jornada; y si algo salió mal, lo **edita, borra o recrea**.
 - **Toma tus reuniones de Google Calendar como evidencia**: enlace de Meet, grabación, transcripción, notas y fotos adjuntas (descargables para adjuntarlas en Azure).
 - **Revisa tus correos del día** (Gmail) como evidencia de lo que enviaste.
-- **Publica tu mensaje de inicio y cierre de jornada** en el chat de Google Chat de tu equipo, con el texto que tú apruebes.
 - **Te pone al día con el mes**: detecta los días laborables sin reportar en Ripor (respetando festivos de Colombia y fines de semana) y te propone cada reporte.
 - **Propone tus horas reales en Azure** por Task, a partir de lo que hiciste y de las reuniones que confirmaste.
-- **Si desarrollas**, toma tus commits y PRs del día como evidencia (Azure Repos y GitHub).
 - **Te avisa a tiempo**: Ripor pendiente, PAT por vencer, Tasks estancadas.
+
+**Opcional**, según cómo trabaje tu área:
+
+- **Mensaje de inicio y cierre de jornada** en el chat de Google Chat de tu equipo, con el formato de tu área y el texto que tú apruebes. Si tu equipo no reporta así, no lo configures.
+- **Commits y PRs del día como evidencia** (Azure Repos y GitHub), solo si desarrollas.
+
+Linky sirve para cualquier área, no solo para quien programa. Lo esencial es Azure DevOps y Ripor; Google Chat, Calendar, Gmail y los commits son complementos que activas solo si te sirven.
 
 No es una app ni una página web: son comandos locales. Funciona igual en **Windows, macOS y Linux**, y **no necesita API keys**: lo usas con el asistente de IA que prefieras.
 
@@ -91,7 +96,7 @@ npm run linky -- ripor catalog --from-date <un día que ya reportaste>
 npm run linky -- ripor setup --answers ~/.linky/ripor-setup-answers.json --transporte "🏠 Trabajo Remoto"
 ```
 
-**3. Conecta Google** (opcional): `npm run linky -- google login` (una vez). Luego `chat login` para elegir el chat donde reportas. Con esa misma sesión se leen tus reuniones de Calendar (`calendar day`) y Ripor entra con Google sin abrir ventana.
+**3. Conecta Google** (opcional): `npm run linky -- google login` (una vez). Con esa sesión se leen tus reuniones de Calendar (`calendar day`) y tus correos, y Ripor entra con Google sin abrir ventana. Si tu equipo reporta inicio y cierre de jornada en Google Chat, `chat login` elige ese chat (opcional).
 
 **4. Revisa que todo esté conectado:** `npm run linky -- doctor` (dice exactamente qué falta y cómo arreglarlo).
 
@@ -99,7 +104,7 @@ npm run linky -- ripor setup --answers ~/.linky/ripor-setup-answers.json --trans
 
 ```bash
 npm run linky -- alerts                                    # qué está pendiente (hoy, el mes, PATs, Tasks)
-npm run linky -- day                                       # todo el día en una llamada: Azure, reuniones, Ripor, chat
+npm run linky -- day                                       # todo el día en una llamada: Azure, reuniones, Ripor (y chat si lo usas)
 npm run linky -- ripor month --suggest                     # días del mes sin reportar, con propuesta para cada uno
 npm run linky -- azure hours                               # propuesta de horas reales por Task
 npm run linky -- azure activity --date 2026-11-04          # qué hiciste (usa --all para todas tus organizaciones)
@@ -125,7 +130,7 @@ También puedes cargar las skills; contienen el flujo completo, las reglas y qu�
 
 - [`skills/linky-azure-boards/SKILL.md`](skills/linky-azure-boards/SKILL.md): Azure DevOps.
 - [`skills/linky-ripor/SKILL.md`](skills/linky-ripor/SKILL.md): Ripor.
-- [`skills/linky-chat/SKILL.md`](skills/linky-chat/SKILL.md): Google Chat.
+- [`skills/linky-chat/SKILL.md`](skills/linky-chat/SKILL.md): mensajes de inicio y cierre en Google Chat (opcional).
 - [`skills/linky-calendar/SKILL.md`](skills/linky-calendar/SKILL.md): Google Calendar.
 - [`skills/linky-mail/SKILL.md`](skills/linky-mail/SKILL.md): Gmail.
 - [`skills/linky-dev/SKILL.md`](skills/linky-dev/SKILL.md): commits y PRs (opcional).

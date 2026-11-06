@@ -131,7 +131,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: "chat_send",
-    description: "Publica el último borrador en el chat. SOLO tras el 'sí' explícito de la persona al texto mostrado.",
+    description: "Opcional (solo si el área reporta en Google Chat). Publica el último borrador en el chat. SOLO tras el 'sí' explícito de la persona al texto mostrado.",
     properties: { snapshot: str("snapshotHash del borrador."), approved: bool("true solo si la persona aprobó.") },
     required: ["snapshot", "approved"],
     browser: true,

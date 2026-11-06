@@ -36,6 +36,8 @@ export function renderBanner(opts?: { color?: boolean }): string {
     "     4. Revisión       →  doctor",
     "     5. Tu día         →  \"registra mi día con lo que hice en Azure\"",
     "",
+    "   Opcional:  chat login (inicio/cierre en Google Chat)  ·  dev scan (si desarrollas)",
+    "",
   ];
   return lines.join("\n");
 }
