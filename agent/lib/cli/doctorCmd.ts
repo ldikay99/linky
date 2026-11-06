@@ -2,6 +2,8 @@
  * `linky doctor`: estado de TODO en una llamada, con el arreglo exacto para cada problema.
  * Pensado para que la IA sepa qué falta sin probar comando por comando. No escribe nada.
  */
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { loadAzureOrgs } from "../azure/orgs.js";
 import { openSharedBrowser } from "../browser/shared.js";
 import { findOrphanBrowsers } from "../browser/cleanup.js";
@@ -119,6 +121,29 @@ export async function runDoctor(opts: { dataDir?: string; skipBrowser?: boolean 
       : { area: "chat", ok: false, detail: "Sin chat de reporte (opcional)", fix: "npm run linky -- chat login" },
   );
 
-  // "chat" es opcional: no hace fallar el diagnóstico.
-  return { ok: checks.filter((c) => c.area !== "chat").every((c) => c.ok), checks };
+  checks.push(linkyUpdateCheck());
+
+  // "chat" y las actualizaciones son informativos: no hacen fallar el diagnóstico.
+  return { ok: checks.filter((c) => c.area !== "chat" && c.area !== "linky").every((c) => c.ok), checks };
+}
+
+/** ¿Hay arreglos nuevos de Linky en el repo remoto? (quien clonó no se entera solo). Solo lectura: git fetch. */
+export function linkyUpdateCheck(): Check {
+  const root = fileURLToPath(new URL("../../../", import.meta.url));
+  const git = (args: string[], timeout = 15_000) =>
+    execFileSync("git", args, { cwd: root, encoding: "utf8", timeout, stdio: ["ignore", "pipe", "ignore"], windowsHide: true }).trim();
+  try {
+    git(["rev-parse", "--abbrev-ref", "@{u}"], 5_000);
+  } catch {
+    return { area: "linky", ok: true, detail: "sin rama remota que seguir (no se comprueban actualizaciones)" };
+  }
+  try {
+    git(["fetch", "--quiet"]);
+    const behind = Number(git(["rev-list", "--count", "HEAD..@{u}"], 5_000));
+    return behind > 0
+      ? { area: "linky", ok: false, detail: `Hay ${behind} cambio(s) nuevo(s) de Linky (arreglos y mejoras)`, fix: "git pull && npm install (con aprobación de la persona)" }
+      : { area: "linky", ok: true, detail: "Linky está al día" };
+  } catch {
+    return { area: "linky", ok: true, detail: "no se pudo comprobar si hay actualizaciones (sin red o sin git)" };
+  }
 }
