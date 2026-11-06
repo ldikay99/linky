@@ -229,3 +229,62 @@ describe("mensajes de inicio y cierre", async () => {
     expect(msg).toMatch(/… y \d+ más/);
   });
 });
+
+describe("lecturas Azure con reintento", async () => {
+  const { azureReadJson } = await import("../agent/lib/azure/http.js");
+  const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { "content-type": "application/json" } });
+
+  it("reintenta cortes de red y 5xx; responde al recuperarse", async () => {
+    let calls = 0;
+    const f = (async () => {
+      calls++;
+      if (calls === 1) throw new TypeError("fetch failed");
+      if (calls === 2) return json({}, 503);
+      return json({ ok: true });
+    }) as typeof fetch;
+    expect(await azureReadJson(f, "https://dev.azure.com/X/_apis/a", {})).toEqual({ ok: true });
+    expect(calls).toBe(3);
+  });
+
+  it("no reintenta sesión inválida ni errores definitivos", async () => {
+    let calls = 0;
+    const html = (async () => {
+      calls++;
+      return new Response("<html/>", { status: 203, headers: { "content-type": "text/html" } });
+    }) as typeof fetch;
+    await expect(azureReadJson(html, "https://dev.azure.com/X/_apis/a", {})).rejects.toThrow(/AZURE_AUTH_INVALID/);
+    expect(calls).toBe(1);
+    calls = 0;
+    const notFound = (async () => {
+      calls++;
+      return json({ message: "no" }, 404);
+    }) as typeof fetch;
+    await expect(azureReadJson(notFound, "https://dev.azure.com/X/_apis/a", {})).rejects.toThrow(/404/);
+    expect(calls).toBe(1);
+  });
+});
+
+describe("sugerencia de Ripor", async () => {
+  const { buildRiporNotes, suggestionWarnings } = await import("../agent/lib/ripor/suggest.js");
+  const item = (id: number, title: string, delivered = true) => ({
+    id, title, type: "Task", project: "Proyecto Demo", state: "Entregado", url: `https://e/${id}`,
+    createdToday: delivered, stateChanges: delivered ? ["a → b"] : [], completedWorkDelta: 1, comments: [], changedAt: [],
+  });
+  const day = (items: ReturnType<typeof item>[]) => ({ dateYmd: "2026-11-04", timeZone: "UTC", user: "x", items, completedWorkHours: items.length });
+
+  it("agrupa por sufijo de área y respeta el tope", () => {
+    const notes = buildRiporNotes(day([item(1, "Ajustar filtros - ModuloA"), item(2, "Validar en UAT - ModuloA"), item(3, "Revisar estilos")]));
+    expect(notes).toBe("ModuloA: ajustar filtros; validar en UAT. Proyecto Demo: revisar estilos.");
+    const many = day(Array.from({ length: 30 }, (_, i) => item(i, `Tarea muy descriptiva número ${i} con bastante texto - ModuloA`)));
+    const capped = buildRiporNotes(many, 300);
+    expect(capped.length).toBeLessThanOrEqual(300);
+    expect(capped).toMatch(/tarea\(s\) más/);
+  });
+
+  it("avisa sin inventar cuando Azure no sustenta la jornada", () => {
+    const w = suggestionWarnings({ notes: "corta", evidence: undefined, sustainedHours: 3, expectedHours: 8.5 });
+    expect(w.join(" ")).toMatch(/mínimo 50/);
+    expect(w.join(" ")).toMatch(/Sin evidencia/);
+    expect(w.join(" ")).toMatch(/sustenta 3 h de 8.5 h/);
+  });
+});

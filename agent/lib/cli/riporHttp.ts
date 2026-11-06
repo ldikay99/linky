@@ -342,3 +342,32 @@ export async function cmdRiporReconcile(a: Argv, dataDir?: string) {
       : "Sin entradas abiertas.",
   });
 }
+
+/** Sugerencia de reporte Ripor desde la actividad Azure del día (organización principal o --org). */
+export async function riporSuggestion(a: Argv, profile: RiporProfile, dataDir?: string) {
+  const { resolveAzureAccess } = await import("./azureCmd.js");
+  const { readDayActivity } = await import("../azure/activity.js");
+  const { buildRiporNotes, parentEvidence, suggestionWarnings } = await import("../ripor/suggest.js");
+  const dateYmd = a.arg("--date") ?? todayLocalYmd();
+  const access = await resolveAzureAccess({ org: a.arg("--org"), dataDir });
+  const activity = await readDayActivity({ organizationUrl: access.organizationUrl, auth: access.auth, dateYmd });
+  const expectedHours = expectedHoursForDate(dateYmd, profile.schedule);
+  const base = {
+    notes: buildRiporNotes(activity, profile.descriptionMaxChars),
+    evidence: await parentEvidence({ organizationUrl: access.organizationUrl, auth: access.auth, activity }),
+    sustainedHours: activity.completedWorkHours,
+    expectedHours,
+  };
+  return { dateYmd, ...base, warnings: suggestionWarnings(base) };
+}
+
+/** `ripor preview --auto`: completa notas/evidencia/horas sustentadas con la sugerencia (lo explícito gana). */
+export async function autoDraftPayload(a: Argv, profile: RiporProfile, dataDir?: string): Promise<RiporDraftPayload & { warnings: string[] }> {
+  const s = await riporSuggestion(a, profile, dataDir);
+  const argv = [...process.argv];
+  if (!a.arg("--date")) argv.push("--date", s.dateYmd);
+  if (!a.arg("--notes")) argv.push("--notes", s.notes);
+  if (!a.all("--evidence").length && s.evidence) argv.push("--evidence", s.evidence.url);
+  if (!a.arg("--sustained")) argv.push("--sustained", String(Math.min(s.sustainedHours, s.expectedHours)));
+  return { ...draftPayloadFromFlags(argvHelpers(argv), profile), warnings: s.warnings };
+}

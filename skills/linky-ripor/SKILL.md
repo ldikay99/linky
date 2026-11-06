@@ -42,7 +42,11 @@ Transporte (valores oficiales del formulario): 🚗 Vehículo particular · 🏍
 4. Redactar **descripción breve** en pasado que resuma esas tareas: **50 a 500 caracteres** (Ripor exige mínimo 50). Sin inventar ni mezclar planes.
 5. **Evidencia**: **un** enlace real que abra; preferir la **HU padre** de las tareas del día (cubre todo), o la Task principal. El formulario valida una sola URL. Sin credenciales en la URL.
 6. Horas: **8.5 lun–jue, 8 vie**, sumando todos los reportes del día. Nunca más. Menos solo si el usuario lo pide explícitamente para esa fecha (`--under-hours "motivo" --hours N`).
-7. Preview:
+7. Atajo recomendado: `npm run linky -- ripor suggest --date <día>` propone descripción (desde Azure), evidencia
+   (HU padre más frecuente) y horas sustentadas, con avisos si Azure no cubre la jornada (preguntar, no inventar).
+   `ripor preview --auto --date <día>` arma el preview con esa sugerencia; lo que pases explícito (`--notes`,
+   `--evidence`, `--sustained`) tiene prioridad. Revisa el texto con la persona antes de aprobar.
+8. Preview manual:
    ```bash
    npm run linky -- ripor preview --notes "<descripción>" --evidence <url1> --evidence <url2> --sustained <horas sustentadas en Azure>
    # opcionales: --date YYYY-MM-DD --transporte "<label del día>" --task "<label>" --update <reportId>

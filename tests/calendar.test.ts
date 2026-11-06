@@ -128,3 +128,34 @@ describe("calendar export", () => {
     expect(day.events.map((e) => e.title)).toEqual(["Daily del equipo (movida)"]);
   });
 });
+
+describe("descarga de adjuntos y correos (determinista)", async () => {
+  const { attachmentKind, downloadUrl, driveFileId } = await import("../agent/lib/calendar/download.js");
+  const { gmailDayQuery, gmailTitleYmd } = await import("../agent/lib/mail/gmail.js");
+
+  it("Drive: ID, tipo y URL de descarga (Docs → PDF)", () => {
+    expect(driveFileId("https://drive.google.com/open?id=AbCdEfGhIjKl123")).toBe("AbCdEfGhIjKl123");
+    expect(driveFileId("https://docs.google.com/document/d/AbCdEfGhIjKl123/edit")).toBe("AbCdEfGhIjKl123");
+    const doc = { url: "https://drive.google.com/open?id=AbCdEfGhIjKl123", mime: "application/vnd.google-apps.document" };
+    expect(attachmentKind(doc)).toBe("doc");
+    expect(downloadUrl(doc)).toBe("https://docs.google.com/document/d/AbCdEfGhIjKl123/export?format=pdf");
+    const img = { url: "https://drive.google.com/open?id=FotoDemo123456", mime: "image/jpeg" };
+    expect(attachmentKind(img)).toBe("image");
+    expect(downloadUrl(img)).toBe("https://drive.google.com/uc?export=download&id=FotoDemo123456");
+    expect(attachmentKind({ url: "x", mime: "video/mp4" })).toBe("video");
+  });
+
+  it("Gmail: consulta del día exacto (epoch local) y solo operadores positivos", () => {
+    const q = gmailDayQuery("2026-11-05", "received", "America/Bogota");
+    expect(q).toBe("in:inbox after:1793854800 before:1793941200");
+    expect(gmailDayQuery("2026-11-05", "sent", "America/Bogota")).toMatch(/^in:sent /);
+    expect(gmailDayQuery("2026-11-05", "all", "America/Bogota")).not.toMatch(/-in:/);
+  });
+
+  it("Gmail: fecha de la fila en español e inglés", () => {
+    expect(gmailTitleYmd("mié, 2 sept 2026, 18:02")).toBe("2026-09-02");
+    expect(gmailTitleYmd("jue, 5 nov 2026, 19:24")).toBe("2026-11-05");
+    expect(gmailTitleYmd("Wed, Sep 2, 2026, 6:02 PM")).toBe("2026-09-02");
+    expect(gmailTitleYmd("sin fecha")).toBeUndefined();
+  });
+});

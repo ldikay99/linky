@@ -3,8 +3,9 @@
  * work items que ELLA cambió ese día, con cambios de estado, horas completadas y comentarios.
  * Fuente para la descripción breve de Ripor. Solo lectura.
  */
+import { azureReadJson } from "./http.js";
 import { validateOrganizationUrl } from "../security/orgUrl.js";
-import { assertAzureAuthenticated, azureAuthHeaders, type AzureAuth } from "./client.js";
+import { azureAuthHeaders, type AzureAuth } from "./client.js";
 
 export type DayActivityItem = {
   id: number;
@@ -65,18 +66,7 @@ export async function readDayActivity(input: {
   const doFetch = input.fetchImpl ?? fetch;
   const headers = { ...azureAuthHeaders(input.auth), accept: "application/json" };
 
-  async function get<T>(url: string, init?: { method?: string; body?: unknown }): Promise<T> {
-    const res = await doFetch(url, {
-      method: init?.method ?? "GET",
-      headers: init?.body ? { ...headers, "content-type": "application/json" } : headers,
-      body: init?.body ? JSON.stringify(init.body) : undefined,
-      redirect: "manual",
-      signal: AbortSignal.timeout(30_000),
-    });
-    assertAzureAuthenticated(res);
-    if (!res.ok) throw new Error(`Azure ${new URL(url).pathname}: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
-    return (await res.json()) as T;
-  }
+  const get = <T>(url: string, init?: { method?: string; body?: unknown }) => azureReadJson<T>(doFetch, url, headers, init?.body);
 
   const conn = await get<{ authenticatedUser: { id: string; providerDisplayName?: string } }>(
     `${org}/_apis/connectionData`,

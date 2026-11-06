@@ -4,8 +4,9 @@
  * no por nombre, para que sirva con cualquier proceso. El texto sale de plantillas que cada persona
  * ajusta a su área (`chat template`).
  */
+import { azureReadJson } from "../azure/http.js";
 import { readDayActivity, type DayActivityReport } from "../azure/activity.js";
-import { assertAzureAuthenticated, azureAuthHeaders, type AzureAuth } from "../azure/client.js";
+import { azureAuthHeaders, type AzureAuth } from "../azure/client.js";
 import { validateOrganizationUrl } from "../security/orgUrl.js";
 
 export type ChatTemplates = { inicio: string; cierre: string; item: string; vacio: string };
@@ -21,18 +22,8 @@ export type TaskLine = { id: number; title: string; state: string; category: str
 
 type Fetch = typeof fetch;
 
-async function getJson<T>(doFetch: Fetch, url: string, headers: Record<string, string>, body?: unknown): Promise<T> {
-  const res = await doFetch(url, {
-    method: body ? "POST" : "GET",
-    headers: body ? { ...headers, "content-type": "application/json" } : headers,
-    body: body ? JSON.stringify(body) : undefined,
-    redirect: "manual",
-    signal: AbortSignal.timeout(30_000),
-  });
-  assertAzureAuthenticated(res);
-  if (!res.ok) throw new Error(`Azure ${new URL(url).pathname}: HTTP ${res.status}`);
-  return (await res.json()) as T;
-}
+const getJson = <T>(doFetch: Fetch, url: string, headers: Record<string, string>, body?: unknown) =>
+  azureReadJson<T>(doFetch, url, headers, body);
 
 /** Categoría de cada estado de Task por proyecto (cacheada por llamada). */
 async function stateCategories(doFetch: Fetch, org: string, headers: Record<string, string>, projects: string[]) {

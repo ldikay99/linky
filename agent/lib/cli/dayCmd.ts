@@ -7,6 +7,7 @@
 import { readDayActivity, type DayActivityReport } from "../azure/activity.js";
 import { loadAzureOrgs } from "../azure/orgs.js";
 import { calendarDay, downloadCalendarExport } from "../calendar/export.js";
+import { gmailDay, type MailItem } from "../mail/gmail.js";
 import { loadChatConfig } from "../chat/config.js";
 import { deliveredOn, myOpenTasks, renderDayMessage, type TaskLine } from "../chat/dayMessages.js";
 import { loadRiporProfile } from "../ripor/profileStore.js";
@@ -61,14 +62,25 @@ export async function runDay(a: Argv, dataDir?: string): Promise<void> {
     }
   })();
 
+  // Calendar y correos comparten el perfil de navegador: van en secuencia dentro de este trabajo.
+  let mail: MailItem[] | undefined;
   const calendarJob = (async () => {
-    if (a.has("--no-calendar")) return undefined;
-    try {
-      return calendarDay(await downloadCalendarExport({ dataDir }), dateYmd);
-    } catch (e) {
-      errores.calendar = short(e);
-      return undefined;
+    let cal: ReturnType<typeof calendarDay> | undefined;
+    if (!a.has("--no-calendar")) {
+      try {
+        cal = calendarDay(await downloadCalendarExport({ dataDir }), dateYmd);
+      } catch (e) {
+        errores.calendar = short(e);
+      }
     }
+    if (a.has("--mail")) {
+      try {
+        mail = await gmailDay({ dateYmd, box: "sent", dataDir });
+      } catch (e) {
+        errores.correos = short(e);
+      }
+    }
+    return cal;
   })();
 
   const [azure, riporReports, calendar] = await Promise.all([azureJob, riporJob, calendarJob]);
@@ -121,6 +133,7 @@ export async function runDay(a: Argv, dataDir?: string): Promise<void> {
       meet: e.meetUrl,
       evidencias: e.attachments.map((x) => ({ tipo: x.mime, titulo: x.title, url: x.url })),
     })),
+    correosEnviados: mail ? mail.map((m) => ({ hora: m.time, asunto: m.subject, para: m.people, enlace: m.url })) : undefined,
     ripor: riporReports
       ? {
           reportado: reported,
