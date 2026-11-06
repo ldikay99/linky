@@ -297,7 +297,7 @@ async function cmdRiporSetup() {
 
 async function cmdRiporPreview() {
   const profile = await loadRiporProfile(dataDir());
-  if (!profile?.setupComplete) throw new Error("Falta ripor setup.");
+  if (!profile?.setupComplete) throw new Error("Falta ripor setup: npm run linky -- ripor login → ripor catalog --from-date <día ya reportado> → ripor setup");
   const draftFile = arg("--draft");
   const auto = !draftFile && has("--auto") ? await autoDraftPayload(argvHelpers(), profile, dataDir()) : undefined;
   const payload: RiporDraftPayload = draftFile
@@ -365,7 +365,7 @@ async function cmdRiporApply() {
   const hash = arg("--snapshot") ?? preview.snapshotHash;
   if (!hash) throw new Error("Falta snapshotHash.");
   const profile = await loadRiporProfile(dataDir());
-  if (!profile?.setupComplete) throw new Error("Falta ripor setup.");
+  if (!profile?.setupComplete) throw new Error("Falta ripor setup: npm run linky -- ripor login → ripor catalog --from-date <día ya reportado> → ripor setup");
 
   const approval: RiporApproval = {
     op: preview.op,
@@ -416,7 +416,7 @@ async function cmdRiporDeletePreview() {
   const id = arg("--id");
   if (!dateYmd || !id) throw new Error("Delete preview requiere --date YYYY-MM-DD y --id <reportId>");
   const profile = await loadRiporProfile(dataDir());
-  if (!profile?.setupComplete) throw new Error("Falta ripor setup.");
+  if (!profile?.setupComplete) throw new Error("Falta ripor setup: npm run linky -- ripor login → ripor catalog --from-date <día ya reportado> → ripor setup");
   const adapter = riporMock()
     ? createMockRiporUiAdapter({ existing: { [dateYmd]: [{ id, hours: Number(arg("--hours") ?? 8.5) }] } })
     : await riporAdapterFor(profile, false);
@@ -600,7 +600,7 @@ async function main() {
       else if (sub === "month") await cmdRiporMonth(argvHelpers(), dataDir());
       else if (sub === "suggest") {
         const profile = await loadRiporProfile(dataDir());
-        if (!profile?.setupComplete) throw new Error("Falta ripor setup.");
+        if (!profile?.setupComplete) throw new Error("Falta ripor setup: npm run linky -- ripor login → ripor catalog --from-date <día ya reportado> → ripor setup");
         const s = await riporSuggestion(argvHelpers(), profile, dataDir());
         console.log(JSON.stringify({ ...s, siguiente: `npm run linky -- ripor preview --auto --date ${s.dateYmd}  (o con --notes/--evidence propios)` }, null, 2));
       }

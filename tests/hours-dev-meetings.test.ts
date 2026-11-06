@@ -80,6 +80,12 @@ describe("avisos proactivos", async () => {
     expect(temprano[0].nivel).toBe("media");
   });
 
+  it("persona nueva: Azure y Ripor sin configurar son alertas altas con su comando", () => {
+    const a = buildAlerts({ ...base, sinConfigurar: ["azure", "ripor"] });
+    expect(a.map((x) => `${x.nivel}:${x.area}`)).toEqual(["alta:azure", "alta:ripor"]);
+    expect(a[0].accion).toMatch(/azure connect/);
+  });
+
   it("PAT por vencer, vencido o sin fecha; Task estancada; huérfanos y Google", () => {
     const a = buildAlerts({
       ...base,

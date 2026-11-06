@@ -6,7 +6,10 @@ const MONTHS = "enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|set
 
 const DATE_PATTERNS: RegExp[] = [
   /\b\d{4}[-/.]\d{1,2}[-/.]\d{1,2}\b/i, // 2026-11-04
-  /\b(?:0?[1-9]|[12]\d|3[01])[/-](?:0?[1-9]|1[0-2])(?:[/-]\d{2,4})?\b/i, // 04/11, 4-11-2026
+  // Día/mes con año (4-11-2026, 4/11/26) o con barra y algún componente de dos dígitos (04/11, 4/11).
+  // Sin año, el guion es un rango ("2-3 frases") y una barra de un dígito es una fracción ("1/2 hora").
+  /\b(?:0?[1-9]|[12]\d|3[01])([/-])(?:0?[1-9]|1[0-2])\1\d{2,4}\b/i,
+  /\b(?:(?:0[1-9]|[12]\d|3[01])\/(?:0?[1-9]|1[0-2])|(?:0?[1-9]|[12]\d|3[01])\/(?:0[1-9]|1[0-2]))\b(?!\/)/i,
   new RegExp(`\\b(?:0?[1-9]|[12]\\d|3[01])\\s+(?:de\\s+)?(?:${MONTHS})\\b\\.?(?:\\s+(?:de\\s+)?\\d{4})?`, "i"), // 4 de noviembre
   new RegExp(`\\b(?:${MONTHS})\\.?\\s+(?:0?[1-9]|[12]\\d|3[01])\\b`, "i"), // nov 4
 ];

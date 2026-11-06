@@ -379,7 +379,7 @@ export async function autoDraftPayload(a: Argv, profile: RiporProfile, dataDir?:
 /** `ripor month`: días laborables del mes que faltan o están incompletos (festivos y fines de semana no se exigen). */
 export async function cmdRiporMonth(a: Argv, dataDir?: string) {
   const profile = await loadOrEmptyRiporProfile(dataDir);
-  if (!profile.setupComplete) throw new Error("Falta ripor setup.");
+  if (!profile.setupComplete) throw new Error("Falta ripor setup: npm run linky -- ripor login → ripor catalog --from-date <día ya reportado> → ripor setup");
   const { classifyMonth, monthDays } = await import("../ripor/month.js");
   const today = todayLocalYmd();
   const monthYm = a.arg("--month") ?? today.slice(0, 7);

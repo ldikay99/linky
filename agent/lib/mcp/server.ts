@@ -136,7 +136,7 @@ export function startServer(): void {
     if (!line.trim()) return;
     let req: Rpc;
     try {
-      req = JSON.parse(line) as Rpc;
+      req = JSON.parse(line.replace(/^﻿/, "")) as Rpc; // BOM de PowerShell en la primera línea
     } catch {
       return send({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "JSON inválido" } });
     }

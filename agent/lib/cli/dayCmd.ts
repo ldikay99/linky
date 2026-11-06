@@ -99,6 +99,9 @@ export async function runDay(a: Argv, dataDir?: string): Promise<void> {
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const pasos: string[] = [];
+  if (!reg.orgs.length || !riporProfile?.setupComplete) {
+    pasos.push("Falta el onboarding: `npm run linky -- doctor` muestra cada paso pendiente y cómo resolverlo.");
+  }
   const future = futureDateBlocker(dateYmd);
   if (future) pasos.push(future);
   else if (!workday) pasos.push(holidays.length ? `Festivo (${holidays.join(", ")}): no reportar Ripor.` : "Fin de semana: no reportar Ripor.");

@@ -22,8 +22,16 @@ export function buildAlerts(input: {
   eventosSinClasificar?: number;
   huerfanos?: number;
   google?: boolean;
+  /** Partes esenciales sin configurar (persona nueva). */
+  sinConfigurar?: Array<"azure" | "ripor">;
 }): Alert[] {
   const out: Alert[] = [];
+  if (input.sinConfigurar?.includes("azure")) {
+    out.push({ nivel: "alta", area: "azure", mensaje: "Azure DevOps no está conectado.", accion: "npm run linky -- azure connect --org https://dev.azure.com/<org> --primary" });
+  }
+  if (input.sinConfigurar?.includes("ripor")) {
+    out.push({ nivel: "alta", area: "ripor", mensaje: "Ripor no está configurado.", accion: "npm run linky -- ripor login → ripor catalog --from-date <día ya reportado> → ripor setup" });
+  }
   const r = input.ripor;
   if (r) {
     if (!r.sesion) out.push({ nivel: "alta", area: "ripor", mensaje: "Sin sesión de Ripor.", accion: "npm run linky -- ripor login" });
