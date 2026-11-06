@@ -30,6 +30,38 @@ describe("day plan", () => {
     expect(plan.missingQuestions.some((q) => /evidencia/.test(q))).toBe(true);
   });
 
+  it("conserva los campos explícitos de la actividad", () => {
+    const plan = buildDayPlan(profile, {
+      date: "2026-11-05",
+      activities: [
+        {
+          kind: "done",
+          title: "Algo",
+          shortDescription: "Implementé el ajuste del export.",
+          workItemType: "Task",
+          fields: { "Microsoft.VSTS.Common.Activity": "Development" },
+        },
+      ],
+    });
+    expect(plan.activities[0].fields).toEqual({ "Microsoft.VSTS.Common.Activity": "Development" });
+  });
+
+  it("bloquea fechas en una descripción HTML explícita", () => {
+    const plan = buildDayPlan(profile, {
+      date: "2026-11-05",
+      activities: [
+        {
+          kind: "done",
+          title: "Algo",
+          shortDescription: "Implementé el ajuste del export.",
+          workItemType: "Task",
+          fields: { "System.Description": "<div>Se entregó el 5 de noviembre.</div>" },
+        },
+      ],
+    });
+    expect(plan.missingQuestions.join(" ")).toMatch(/no lleva fechas/);
+  });
+
   it("bloquea crear HU si política scrum", () => {
     const plan = buildDayPlan(profile, {
       date: "2026-11-05",

@@ -105,7 +105,7 @@ export async function applyPreview(
           for (const att of change.attachments) {
             const prepared = await prepareLocalImageAttachment(att.localPath, options.profile.evidence);
             const uploaded = await client.uploadAttachment(prepared.fileName, prepared.contentType, prepared.bytes);
-            patch.push(attachmentRelationPatch(uploaded.url, `linky:${change.clientKey}`));
+            patch.push(attachmentRelationPatch(uploaded.url, "Evidencia"));
           }
         }
         const item = await client.createWorkItem(String(change.workItemType), patch);
@@ -127,7 +127,7 @@ export async function applyPreview(
             const prepared = await prepareLocalImageAttachment(att.localPath, options.profile.evidence);
             void bytes;
             const uploaded = await client.uploadAttachment(prepared.fileName, prepared.contentType, prepared.bytes);
-            patch.push(attachmentRelationPatch(uploaded.url, `linky:${change.clientKey}`));
+            patch.push(attachmentRelationPatch(uploaded.url, "Evidencia"));
           }
         }
         const item = await client.updateWorkItem(change.workItemId, patch, {

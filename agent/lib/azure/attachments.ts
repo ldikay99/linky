@@ -68,11 +68,14 @@ export function clientKeyToken(clientKey: string): string {
   return createHash("sha256").update(clientKey).digest("hex").slice(0, 16);
 }
 
+/** Prefijo neutro del marcador (lo que se busca en la descripción); sin el nombre de la herramienta. */
+export const CLIENT_KEY_MARKER_PREFIX = "ref=";
+
 export function linkyClientKeyMarker(clientKey: string): string {
-  return `<!--linky:k=${clientKeyToken(clientKey)}-->`;
+  return `<!--${CLIENT_KEY_MARKER_PREFIX}${clientKeyToken(clientKey)}-->`;
 }
 
 export function extractClientKeyFromHtml(html: string): string | null {
-  const m = html.match(/<!--linky:k=([0-9a-f]+)-->/);
+  const m = html.match(/<!--(?:ref|linky:k)=([0-9a-f]+)-->/);
   return m?.[1] ?? null;
 }

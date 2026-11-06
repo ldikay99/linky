@@ -91,6 +91,13 @@ export const TOOLS: ToolDef[] = [
   { name: "azure_hus", description: "HU abiertas de sus sprints donde colgar Tasks (con cuántas Tasks suyas y quién la creó).", properties: { org: str("Organización (por defecto la principal)."), days: num("Días hacia atrás (por defecto 45).") }, toArgs: (p) => build(["azure", "hus"], p, { org: "org", days: "days" }) },
   { name: "azure_ceco", description: "Código de proyecto (CECO) usado en HU previas de un tema. Validar antes de proponer una HU.", properties: { topic: str("Tema de la HU."), org: str("Organización (por defecto la principal).") }, required: ["topic"], toArgs: (p) => build(["azure", "ceco"], p, { topic: "topic", org: "org" }) },
   {
+    name: "azure_fields",
+    description:
+      "Cada campo que el equipo llena en un tipo (Task, User Story…), leído de items reales de referencia: obligatorio, valores permitidos, cuántos lo llenan y un ejemplo de formato. Usar ANTES de crear o refinar.",
+    properties: { type: str("Tipo de work item (p. ej. Task, User Story)."), parent: num("HU cuyas hijas sirven de referencia."), like: str("IDs de referencia separados por coma."), org: str("Organización (por defecto la principal).") },
+    toArgs: (p) => build(["azure", "fields"], p, { type: "type", parent: "parent", like: "like", org: "org" }),
+  },
+  {
     name: "azure_style",
     description:
       "Estilo de HU/Tasks aprobado por la persona. Sin argumentos lo muestra. Para guardar: SOLO tras proponer el formato y recibir su aprobación.",

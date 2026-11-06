@@ -95,6 +95,20 @@ asumas que la persona programa. **Primero copia el estilo real** de su equipo: l
 (`azure hus`, la HU padre y sus Tasks hermanas) y usa ese formato. Las plantillas de abajo son solo el respaldo
 cuando no hay referencia; los `<valores>` se llenan con datos reales de la persona, nunca inventados.
 
+**Cada campo cuenta.** Cada equipo y proceso llena campos distintos (fechas de inicio/entrega, ticket asociado,
+etiqueta del responsable, criterios de aceptación, escenario, reglas de negocio…). Antes de crear o refinar:
+
+```bash
+npm run linky -- azure fields --type Task --parent <HU>            # hermanas de la misma HU como referencia
+npm run linky -- azure fields --type "User Story" --like <id,id>   # HU parecidas ya refinadas
+```
+
+Muestra cada campo que el equipo llena (obligatorio o no), sus valores permitidos, cuántas referencias lo traen y un
+ejemplo de formato. Propón un valor para **cada uno** desde el trabajo real; lo que no se pueda saber, pregúntalo.
+Los ejemplos enseñan el formato, no se copian. El preview avisa si queda vacío un campo que las hermanas suelen
+llenar. Los campos se pasan en `fields` de la actividad (la descripción en HTML va en `System.Description`, un
+comentario con mención en `System.History`); para refinar una HU existente, `workItemId` + `fields`.
+
 **Proponer antes de crear (no asumir el estilo):**
 
 1. `npm run linky -- azure style`: si ya hay estilo aprobado, úsalo.
