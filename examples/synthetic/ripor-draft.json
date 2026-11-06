@@ -13,8 +13,8 @@
     "areaProjectLabel": "[MOCK no verificado] Área Demo A",
     "taskLabel": "Tarea Personalizada",
     "hours": 8.5,
-    "description": "Avance confirmado en tareas Azure del día (sintético): mejoras de seguridad y pruebas de integración en ControlDB-synthetic.",
-    "evidenceUrls": ["https://github.com/example/ControlDB-synthetic"],
+    "description": "Avance confirmado en tareas Azure del día (sintético): mejoras de seguridad y pruebas de integración en proyecto-demo.",
+    "evidenceUrls": ["https://github.com/example/proyecto-demo"],
     "transportLabel": "🏠 Trabajo Remoto",
     "transportIsDailyOverride": false
   }

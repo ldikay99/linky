@@ -26,7 +26,7 @@ Linky no usa API keys: funciona con el asistente de IA que la persona prefiera.
 
 1. `npm run linky -- ripor login`
 2. `npm run linky -- ripor catalog --from-date <YYYY-MM-DD de un reporte que ya exista>` → IDs exactos del proyecto, tarea y transporte. Sin reporte previo: `ripor catalog` (heurístico) y confirmar con el usuario.
-3. Preguntar y confirmar:
+3. Preguntar y confirmar con la persona (nunca copiar el proyecto de área, tarea o transporte de otra persona o de ejemplos):
    - **Proyecto de área Ripor** (el del área/contrato de la persona) — distinto de los proyectos Azure.
    - **Tarea**: por defecto "Tarea Personalizada" salvo que el usuario pida otra.
    - **Medio de transporte por defecto** (remoto, vehículo/moto particular, transporte público, carro compartido, bicicleta, patineta eléctrica, apps de movilidad).

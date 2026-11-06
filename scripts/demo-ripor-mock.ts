@@ -26,7 +26,7 @@ async function main() {
 
   const desc = buildRiporDailyDescription([
     {
-      title: "ControlDB security",
+      title: "Proyecto demo: seguridad",
       doneSummary: "Se avanzó en mejoras de seguridad confirmadas en Azure (sintético).",
       projectHint: "Example Project",
     },
@@ -39,7 +39,7 @@ async function main() {
     taskLabel: "Tarea Personalizada",
     hours: 8.5,
     description: desc.description,
-    evidenceUrls: ["https://github.com/example/ControlDB-synthetic"],
+    evidenceUrls: ["https://github.com/example/proyecto-demo"],
     transportLabel: "🏠 Trabajo Remoto",
     transportIsDailyOverride: false,
   };

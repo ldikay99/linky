@@ -46,6 +46,12 @@ de Ripor (skill `linky-ripor`) y para no inventar trabajo.
 
 ## Setup OBLIGATORIO (una vez)
 
+Cada persona tiene SU configuración. Nunca copiar valores de otra persona, de ejemplos ni de este repo.
+Con la credencial conectada, **proponer** respuestas leyendo los datos reales de la persona y **confirmarlas** con ella:
+proyecto y HU donde tiene Tasks asignadas, `Activity`/campos de sus Tasks, quién crea sus HU (`System.CreatedBy`),
+su nombre en Azure (`connectionData`). Lo que no se pueda leer (rol, tag/mención del responsable, almuerzo,
+vencimiento del PAT) se pregunta; si no aplica, se deja vacío — no se inventa.
+
 Preguntar y guardar (sin defaults inventados de proyecto):
 
 1. **Proyecto Azure** (nombre exacto) — crítico
