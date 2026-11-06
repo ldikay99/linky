@@ -71,6 +71,16 @@ describe("day plan", () => {
     expect(plan.activities[0]).toMatchObject({ workItemId: 123, stateOnly: true });
   });
 
+  it("refinar una HU existente no exige cubrir la jornada", () => {
+    const plan = buildDayPlan(profile, {
+      date: "2026-11-05",
+      activities: [
+        { kind: "planned", title: "HU", shortDescription: "Refinamiento de alcance y criterios de aceptación.", workItemType: "User Story", workItemId: 9 },
+      ],
+    });
+    expect(plan.missingQuestions.some((q) => /Hueco/.test(q))).toBe(false);
+  });
+
   it("bloquea crear HU si política scrum", () => {
     const plan = buildDayPlan(profile, {
       date: "2026-11-05",
