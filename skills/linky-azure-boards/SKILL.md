@@ -74,6 +74,19 @@ HU ni colgar una Task sin padre. Elegir la HU por el tema del trabajo (el repo, 
 persona en esa HU) y **confirmarla con la persona**. Copiar el estilo de título de sus Tasks anteriores en esa HU
 (p. ej. "Verbo + objeto - Componente"), en pasado o infinitivo, sin fechas.
 
+## Pedir una HU nueva (cuando no existe)
+
+Si la persona no crea HU, se le pide al responsable (scrum/líder) por chat, con borrador y aprobación:
+
+1. **Validar el código de proyecto (CECO)** antes de proponer: `npm run linky -- azure ceco --topic "<tema>"` muestra el
+   código usado en HU anteriores del tema. El código depende del proyecto y de la cuenta de la persona (p. ej. un
+   proyecto de una cuenta de consorcio vs. los de la empresa); confirmarlo con ella, nunca asumirlo.
+2. **Título que diga QUÉ se desarrolla** (la solución concreta), en el formato que usa ese responsable (revisar sus HU
+   y su chat). Nada genérico ni que suene a trabajo manual.
+3. Mensaje corto y directo, en el tono de la persona: sprint, código, título propuesto y evidencia (PRs aprobados,
+   repos). Sin excusas inventadas. Validar fechas del sprint en Azure antes de mencionarlas.
+4. Mostrar el mensaje y enviarlo solo con su aprobación.
+
 ## Crear Tasks (campos del proceso)
 
 Al crear, Linky hereda **Iteración y Área de la HU padre**, respeta los defaults del proceso y, para campos

@@ -135,3 +135,13 @@ describe("HU donde colgar Tasks", async () => {
     expect(hus[0]).toMatchObject({ sprint: "S18", creadaPor: "Líder Demo", url: "https://dev.azure.com/Org/P/_workitems/edit/100" });
   });
 });
+
+describe("código de proyecto (CECO) en títulos de HU", async () => {
+  const { parseHuTitle } = await import("../agent/lib/azure/hus.js");
+  it("extrae número, tipo y código; ignora títulos sin la nomenclatura", () => {
+    expect(parseHuTitle("HU_080_ID_005_REFACTORIZACION, CAMBIOS Y AJUSTES IA PQRD - S12")).toMatchObject({ numero: "080", tipo: "ID", codigo: "005" });
+    expect(parseHuTitle("HU_2.7_453_ETLS")).toBeUndefined();
+    expect(parseHuTitle("HU_2.7_AD_453_ETLS - IED")).toMatchObject({ codigo: "453" });
+    expect(parseHuTitle("PQRD - Radicación de PQRD")).toBeUndefined();
+  });
+});
