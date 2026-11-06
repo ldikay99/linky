@@ -53,6 +53,9 @@ describe("sin fechas en descripciones", () => {
     expect(findDates("Se revisó nov 4 el despliegue")).toEqual(["nov 4"]);
     expect(findDates("Se corrigieron 3 errores en la versión 2 del módulo")).toEqual([]);
     expect(noDatesError("Despliegue en UAT validado")).toBeUndefined();
+    expect(findDates("Se escribieron 2-3 frases y se dedicó 1/2 hora")).toEqual([]);
+    expect(findDates("Entregado el 4-11-2026 y el 4/11/26").sort()).toEqual(["4-11-2026", "4/11/26"]);
+    expect(findDates("Corte del 4/11")).toEqual(["4/11"]);
   });
 
   it("quita fechas de textos sugeridos", () => {

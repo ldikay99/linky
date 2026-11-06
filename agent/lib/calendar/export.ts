@@ -17,7 +17,7 @@ export async function downloadCalendarExport(opts?: { dataDir?: string }): Promi
   const context = await openSharedBrowser({ headless: true, dataDir: opts?.dataDir });
   try {
     if (!(await hasGoogleSession(context))) {
-      throw new Error("No hay sesión de Google en el perfil de Linky. Ejecuta: npm run linky -- chat login (o calendar login).");
+      throw new Error("No hay sesión de Google en el perfil de Linky. Ejecuta: npm run linky -- google login");
     }
     const page = context.pages()[0] ?? (await context.newPage());
     let zipPath: string | null = null;

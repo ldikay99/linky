@@ -94,11 +94,12 @@ export async function runAlerts(a: Argv, dataDir?: string): Promise<void> {
     } catch (e) {
       errores.azure = short(e);
     }
-    return { pats, tareas };
+    return { pats, tareas, conectada: reg.orgs.length > 0 };
   })();
 
-  // Navegador: una sola sesión para Google + Calendar (en secuencia, mismo perfil).
-  const browserJob = (async () => {
+  // Navegador: una sola sesión para Google + Calendar (en secuencia, mismo perfil). Espera a Ripor, que puede
+  // abrir ese mismo perfil para renovar su sesión: dos procesos no pueden usarlo a la vez.
+  const browserJob = riporJob.then(async () => {
     let google: boolean | undefined;
     let sinClasificar: number | undefined;
     let avisosAzure: Array<{ organization: string; expiresOn: string }> | undefined;
@@ -121,7 +122,7 @@ export async function runAlerts(a: Argv, dataDir?: string): Promise<void> {
       errores.google = short(e);
     }
     return { google, sinClasificar, avisosAzure };
-  })();
+  });
 
   const [ripor, azure, browser] = await Promise.all([riporJob, azureJob, browserJob]);
   let huerfanos = 0;
@@ -143,6 +144,7 @@ export async function runAlerts(a: Argv, dataDir?: string): Promise<void> {
     eventosSinClasificar: browser.sinClasificar,
     huerfanos,
     google: browser.google,
+    sinConfigurar: [...(azure.conectada ? [] : (["azure"] as const)), ...(rp?.setupComplete ? [] : (["ripor"] as const))],
   });
   console.log(JSON.stringify({ fecha: today, hora: now, alertas, errores }, null, 2));
 }
