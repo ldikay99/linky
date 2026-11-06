@@ -70,6 +70,12 @@ async function cmdOnboarding() {
   if (!answersFile) throw new Error("Falta --answers <json>");
   const answers = await readJson<OnboardingAnswers>(answersFile);
   const useMock = has("--mock") || process.env.LINKY_AZURE_MODE === "mock";
+  // Sin "pat" en el JSON: usar el que `azure connect` ya guardó en el llavero (nunca escribir el token a archivos).
+  if (!answers.pat?.trim() && !useMock) {
+    const access = await resolveAzureAccess({ org: answers.organizationUrl, dataDir: dataDir() });
+    if (!access.auth.pat) throw new Error("Falta PAT: ejecuta primero npm run linky -- azure connect --org <url>.");
+    answers.pat = access.auth.pat;
+  }
 
   const fallback =
     (arg("--secret-backend") as "env" | "session" | undefined) ||

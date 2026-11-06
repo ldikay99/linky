@@ -5,6 +5,7 @@
   "identityDisplayName": "Persona Demo",
   "identityEmail": "demo@example.com",
   "pat": "synthetic-pat-not-real-0000",
+  "_pat_nota": "Opcional en uso real: si se omite, se usa el PAT guardado con azure connect (llavero). Nunca pongas un PAT real aquí.",
   "defaultTags": [
     "DEMO TAG"
   ],
