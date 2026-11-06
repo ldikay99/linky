@@ -36,6 +36,24 @@ export function buildDayPlan(profile: LinkyProfile, input: DayInput): DayPlan {
 
   for (const [idx, raw] of input.activities.entries()) {
     const id = raw.id ?? `act-${date}-${idx + 1}`;
+    // Solo estado de un item que ya existe: no se reescribe nada, así que no se valida contenido ni cobertura.
+    if (raw.stateOnly) {
+      if (raw.workItemId == null) missing.push(`Actividad "${raw.title}": stateOnly requiere workItemId existente`);
+      activities.push({
+        id,
+        kind: raw.kind,
+        title: raw.title,
+        shortDescription: raw.shortDescription ?? "",
+        workItemId: raw.workItemId,
+        workItemType: raw.workItemType ?? "Task",
+        evidenceLinks: [],
+        evidenceImages: [],
+        meetingOrCallLinks: [],
+        expectedRev: raw.expectedRev,
+        stateOnly: true,
+      });
+      continue;
+    }
     const desc = raw.shortDescription ?? "";
     const v = validateDescription(desc, raw.kind, profile.description);
     if (!v.ok) missing.push(`Actividad "${raw.title}": ${v.errors.join("; ")}`);
@@ -108,11 +126,15 @@ export function buildDayPlan(profile: LinkyProfile, input: DayInput): DayPlan {
       notes: raw.notes,
       expectedRev: raw.expectedRev,
       fields: raw.fields,
+      stateOnly: raw.stateOnly,
       timeRange: raw.timeRange,
     });
   }
 
-  const coverage = validateDayCoverage(profile.schedule, date, activities);
+  const content = activities.filter((a) => !a.stateOnly);
+  const coverage = content.length
+    ? validateDayCoverage(profile.schedule, date, content)
+    : { requiredMinutes: 0, coveredMinutes: 0, gaps: [], overlaps: [], questions: [] as string[] };
   missing.push(...coverage.questions);
   const sums = summarizeEstimateVsActual(activities);
   warnings.push(`${sums.note} Σest=${sums.sumEstimate}min Σreal=${sums.sumActual}min`);

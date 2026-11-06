@@ -62,6 +62,15 @@ describe("day plan", () => {
     expect(plan.missingQuestions.join(" ")).toMatch(/no lleva fechas/);
   });
 
+  it("solo estado: sin validar contenido ni cobertura", () => {
+    const plan = buildDayPlan(profile, {
+      date: "2026-11-05",
+      activities: [{ kind: "done", title: "Ya creada", workItemType: "Task", workItemId: 123, stateOnly: true }],
+    });
+    expect(plan.missingQuestions.filter((q) => !/almuerzo/.test(q))).toEqual([]);
+    expect(plan.activities[0]).toMatchObject({ workItemId: 123, stateOnly: true });
+  });
+
   it("bloquea crear HU si política scrum", () => {
     const plan = buildDayPlan(profile, {
       date: "2026-11-05",

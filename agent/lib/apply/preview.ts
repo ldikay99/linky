@@ -105,17 +105,18 @@ export async function previewDayChanges(
         "System.History": typeof act.fields?.["System.History"] === "string" ? act.fields["System.History"] : escapeHtml(act.shortDescription),
       };
       const picked = pickWritableFields(meta, desired);
-      for (const s of picked.skipped) summary.push(`Omitido en #${act.workItemId}: ${s}`);
-      changes.push({
+      if (act.stateOnly) summary.push(`#${act.workItemId}: solo cambio de estado (no se reescriben campos).`);
+      else for (const s of picked.skipped) summary.push(`Omitido en #${act.workItemId}: ${s}`);
+      if (!act.stateOnly) changes.push({
         op: "update",
         workItemId: act.workItemId,
         clientKey,
+        // El comentario ya va en System.History dentro de los campos.
         fields: picked.applied,
-        comment: act.shortDescription,
         attachments: attachmentPlans.length ? attachmentPlans : undefined,
         expectedRev: act.expectedRev,
       });
-      summary.push(`Actualizar #${act.workItemId} (${typeName}): ${act.title}`);
+      if (!act.stateOnly) summary.push(`Actualizar #${act.workItemId} (${typeName}): ${act.title}`);
 
       const intent = options.intents?.[act.id];
       if (intent) {

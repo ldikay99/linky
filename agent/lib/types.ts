@@ -182,6 +182,8 @@ export type DayActivity = {
   meetingOrCallLinks: string[];
   notes?: string;
   expectedRev?: number;
+  /** Solo cambiar el estado de un item existente (sin reescribir campos ni comentar). */
+  stateOnly?: boolean;
   /** Valores explícitos de campos del proceso para esta actividad (ganan sobre defaults e inferencia). */
   fields?: Record<string, unknown>;
   /** Ventana HH:mm–HH:mm dentro de la jornada (opcional para cobertura). */
