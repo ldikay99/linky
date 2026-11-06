@@ -38,10 +38,12 @@ import {
   cmdRiporLogout,
   cmdRiporReconcile,
   cmdRiporSession,
+  autoDraftPayload,
   draftPayloadFromFlags,
   fillDraftDefaults,
   futureDateBlocker,
   riporAdapterFor,
+  riporSuggestion,
   type RiporDraftPayload,
 } from "./riporHttp.js";
 import { describeRiporSession, loadRiporSession, resolveRiporSecretStore } from "../ripor/http/index.js";
@@ -52,6 +54,7 @@ import { runCalendarCommand } from "./calendarCmd.js";
 import { runGoogleCommand } from "./googleCmd.js";
 import { runDoctor } from "./doctorCmd.js";
 import { runDay } from "./dayCmd.js";
+import { runMailCommand } from "./mailCmd.js";
 
 function arg(flag: string): string | undefined {
   const i = process.argv.indexOf(flag);
@@ -290,9 +293,10 @@ async function cmdRiporPreview() {
   const profile = await loadRiporProfile(dataDir());
   if (!profile?.setupComplete) throw new Error("Falta ripor setup.");
   const draftFile = arg("--draft");
+  const auto = !draftFile && has("--auto") ? await autoDraftPayload(argvHelpers(), profile, dataDir()) : undefined;
   const payload: RiporDraftPayload = draftFile
     ? await readJson<RiporDraftPayload>(draftFile)
-    : draftPayloadFromFlags(argvHelpers(), profile);
+    : (auto ?? draftPayloadFromFlags(argvHelpers(), profile));
   if (payload.draft) payload.draft = fillDraftDefaults(payload.draft, profile);
   const op = payload.op ?? "create";
   const adapter = await riporAdapterFor(profile, riporMock());
@@ -332,6 +336,7 @@ async function cmdRiporPreview() {
         proposedTotalHours: preview.proposedTotalHours,
         expectedHoursForDay: preview.expectedHoursForDay,
         blockers: preview.blockers,
+        avisos: auto?.warnings ?? [],
         adapterKind: adapter.kind,
         next: preview.blockers.length
           ? "Corregir blockers y repetir preview."
@@ -531,6 +536,9 @@ async function main() {
     case "google":
       await runGoogleCommand(process.argv[3], argvHelpers(), dataDir());
       break;
+    case "mail":
+      await runMailCommand(process.argv[3], argvHelpers(), dataDir());
+      break;
     case "calendar":
       await runCalendarCommand(process.argv[3], argvHelpers(), dataDir());
       break;
@@ -552,11 +560,17 @@ async function main() {
       else if (sub === "session") await cmdRiporSession(argvHelpers(), dataDir());
       else if (sub === "catalog") await cmdRiporCatalog(argvHelpers(), dataDir());
       else if (sub === "list") await cmdRiporList(argvHelpers(), dataDir());
+      else if (sub === "suggest") {
+        const profile = await loadRiporProfile(dataDir());
+        if (!profile?.setupComplete) throw new Error("Falta ripor setup.");
+        const s = await riporSuggestion(argvHelpers(), profile, dataDir());
+        console.log(JSON.stringify({ ...s, siguiente: `npm run linky -- ripor preview --auto --date ${s.dateYmd}  (o con --notes/--evidence propios)` }, null, 2));
+      }
       else if (sub === "reconcile") await cmdRiporReconcile(argvHelpers(), dataDir());
       else if (sub === "check") await cmdRiporUiCheck(false);
       else if (sub === "gate") await cmdRiporUiCheck(true);
       else {
-        console.log(`linky ripor <login|logout|session|catalog|setup|list|preview|apply|delete-preview|reconcile|status|check|gate>
+        console.log(`linky ripor <login|logout|session|catalog|setup|list|suggest|preview|apply|delete-preview|reconcile|status|check|gate>
 URL: ${RIPOR_PUBLIC_URL}
 HTTP con la sesión del usuario (keyring); navegador solo en "ripor login". --mock offline.`);
         process.exit(sub ? 1 : 0);
@@ -566,7 +580,7 @@ HTTP con la sesión del usuario (keyring); navegador solo en "ripor login". --mo
     default:
       console.log(renderBanner());
       console.log(`Linky CLI
-Comandos: welcome | doctor | day | onboarding | plan | preview | apply | reconcile | drafts | status | azure | ripor | google | chat | calendar | browser
+Comandos: welcome | doctor | day | onboarding | plan | preview | apply | reconcile | drafts | status | azure | ripor | google | chat | calendar | mail | browser
 Flags: --data-dir --mock --secret-backend env|session --approve --by --snapshot --key
 Ripor: ripor login|catalog|setup|list|preview|apply|delete-preview|reconcile|status (URL https://ripor.co/u/horas)
 PAT: keyring OS; alternativa explícita env/session. Nunca archivo plaintext.

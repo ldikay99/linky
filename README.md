@@ -24,7 +24,8 @@ Linky es un **CLI con skills** que cualquier asistente de IA con acceso a termin
 - **Lee lo que hiciste** en Azure DevOps (tareas creadas, estados, horas completadas, comentarios) en todas tus organizaciones.
 - **Crea y actualiza tus Tasks** con descripción corta y evidencias, respetando quién puede crear o cerrar qué.
 - **Llena tu reporte de Ripor** con un resumen breve de ese trabajo, la evidencia correcta y las horas de tu jornada; y si algo salió mal, lo **edita, borra o recrea**.
-- **Toma tus reuniones de Google Calendar como evidencia**: enlace de Meet, grabación, transcripción, notas y fotos adjuntas.
+- **Toma tus reuniones de Google Calendar como evidencia**: enlace de Meet, grabación, transcripción, notas y fotos adjuntas (descargables para adjuntarlas en Azure).
+- **Revisa tus correos del día** (Gmail) como evidencia de lo que enviaste.
 - **Publica tu mensaje de inicio y cierre de jornada** en el chat de Google Chat de tu equipo, con el texto que tú apruebes.
 
 No es una app ni una página web: son comandos locales. Funciona igual en **Windows, macOS y Linux**, y **no necesita API keys**: lo usas con el asistente de IA que prefieras.
@@ -96,7 +97,7 @@ npm run linky -- ripor setup --answers ~/.linky/ripor-setup-answers.json --trans
 npm run linky -- day                                       # todo el día en una llamada: Azure, reuniones, Ripor, chat
 npm run linky -- azure activity --date 2026-11-04          # qué hiciste (usa --all para todas tus organizaciones)
 npm run linky -- ripor list                                # qué hay reportado hoy
-npm run linky -- ripor preview --notes "<resumen breve>" --evidence <enlace HU> --sustained 8.5
+npm run linky -- ripor preview --auto                      # descripción, evidencia y horas sugeridas desde Azure
 npm run linky -- ripor apply --preview <archivo> --approve --by <tú> --snapshot <hash>
 ```
 
@@ -110,6 +111,7 @@ Carga las skills; contienen el flujo completo, las reglas y qué preguntar:
 - [`skills/linky-ripor/SKILL.md`](skills/linky-ripor/SKILL.md): Ripor.
 - [`skills/linky-chat/SKILL.md`](skills/linky-chat/SKILL.md): Google Chat.
 - [`skills/linky-calendar/SKILL.md`](skills/linky-calendar/SKILL.md): Google Calendar.
+- [`skills/linky-mail/SKILL.md`](skills/linky-mail/SKILL.md): Gmail.
 - [`AGENTS.md`](AGENTS.md): reglas comunes.
 
 ## Contribuir
