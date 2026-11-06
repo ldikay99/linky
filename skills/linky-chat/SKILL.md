@@ -17,6 +17,25 @@ sirve para Ripor ("Iniciar con Google").
 2. `npm run linky -- chat read` → confirmar con la persona que es el chat correcto (muestra los últimos mensajes).
 3. Con permiso de la persona, usar sus mensajes anteriores de inicio/cierre como referencia de formato y largo. Nunca escribir de más.
 
+4. **Formato del área**: mostrar el formato por defecto con `npm run linky -- chat template` y preguntar a la persona
+   cómo reporta su equipo. Ajustarlo, por ejemplo:
+   `chat template --inicio "Hola equipo, hoy {fecha}:
+{tareas}" --cierre "Cierre {fecha}
+Listo: {entregadas}
+Sigue: {en_curso}" --item "- {titulo} (#{id})"`
+   Marcadores: `{fecha}` `{tareas}` `{entregadas}` `{en_curso}`; por línea `{id}` `{titulo}` `{estado}` `{url}`.
+
+## Inicio y cierre de jornada
+
+```bash
+npm run linky -- chat draft --inicio                 # Tasks abiertas de la persona (en curso primero, luego planeación)
+npm run linky -- chat draft --cierre [--date …]      # entregadas/cerradas ese día + lo que sigue en curso
+```
+
+Salen de Azure (organización principal o `--org`), clasificando estados por categoría del proceso. Si el texto pasa
+del tope, Linky acorta títulos y agrupa ("… y N más") conservando los números de Task. La IA puede pulir el texto
+(`--text`), pero sin agregar trabajo que no esté en Azure.
+
 ## Enviar (siempre con aprobación)
 
 ```bash

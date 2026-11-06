@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { linkyDataDir } from "../security/paths.js";
 import { isConversationUrl } from "./browser.js";
+import type { ChatTemplates } from "./dayMessages.js";
 
 export type ChatConfig = {
   version: 1;
@@ -12,6 +13,8 @@ export type ChatConfig = {
   styleSamples?: { inicio?: string[]; cierre?: string[] };
   /** Tope de caracteres del mensaje (corto por defecto). */
   maxChars: number;
+  /** Plantillas de inicio/cierre ajustadas al área de la persona (`chat template`). */
+  templates?: Partial<ChatTemplates>;
 };
 
 const configPath = (dataDir?: string) => path.join(linkyDataDir(dataDir), "chat.json");

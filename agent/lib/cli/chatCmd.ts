@@ -7,8 +7,10 @@ import path from "node:path";
 import { loginAndPickChat } from "../chat/browser.js";
 import { loadChatConfig, saveChatConfig } from "../chat/config.js";
 import { readConversation, sendMessage } from "../chat/conversation.js";
+import { DEFAULT_CHAT_TEMPLATES, deliveredOn, myOpenTasks, renderDayMessage } from "../chat/dayMessages.js";
 import { linkyDataDir } from "../security/paths.js";
-import type { argvHelpers } from "./riporHttp.js";
+import { resolveAzureAccess } from "./azureCmd.js";
+import { todayLocalYmd, type argvHelpers } from "./riporHttp.js";
 
 type Argv = ReturnType<typeof argvHelpers>;
 
@@ -65,6 +67,7 @@ export async function runChatCommand(sub: string | undefined, a: Argv, dataDir?:
         target: { url: picked.url, title: picked.title || undefined, confirmedAt: new Date().toISOString() },
         styleSamples: prev?.styleSamples,
         maxChars: prev?.maxChars ?? 600,
+        templates: prev?.templates,
       },
       dataDir,
     );
@@ -84,11 +87,48 @@ export async function runChatCommand(sub: string | undefined, a: Argv, dataDir?:
     return;
   }
 
+  if (sub === "template") {
+    const cfg = await requireTarget(dataDir);
+    const templates = { ...(cfg.templates ?? {}) };
+    for (const key of ["inicio", "cierre", "item", "vacio"] as const) {
+      const v = a.arg(`--${key}`);
+      // "\n" escrito literalmente en la terminal = salto de línea.
+      if (v !== undefined) templates[key] = v.replace(/\\n/g, "\n");
+    }
+    await saveChatConfig({ ...cfg, templates }, dataDir);
+    const sample = { id: 1234, title: "Ejemplo de tarea", state: "En curso", category: "InProgress", project: "Proyecto", url: "https://example.com" };
+    print({
+      templates: { ...DEFAULT_CHAT_TEMPLATES, ...templates },
+      ejemploInicio: renderDayMessage("inicio", { dateYmd: todayLocalYmd(), tareas: [sample] }, templates),
+      ejemploCierre: renderDayMessage("cierre", { dateYmd: todayLocalYmd(), entregadas: [sample], en_curso: [] }, templates),
+      marcadores: "{fecha} {tareas} {entregadas} {en_curso}; por línea: {id} {titulo} {estado} {url}; \\n = salto de línea",
+    });
+    return;
+  }
+
   if (sub === "draft") {
     const cfg = await requireTarget(dataDir);
     const file = a.arg("--file");
-    const text = (file ? await readFile(file, "utf8") : a.arg("--text") ?? "").replace(/\r\n/g, "\n").trim();
-    if (!text) throw new Error('chat draft --text "<mensaje>" (o --file <ruta>)');
+    let text = (file ? await readFile(file, "utf8") : a.arg("--text") ?? "").replace(/\r\n/g, "\n").trim();
+    if (!text && (a.has("--inicio") || a.has("--cierre"))) {
+      // Generado desde Azure (organización principal o --org) con la plantilla de la persona.
+      const dateYmd = a.arg("--date") ?? todayLocalYmd();
+      const access = await resolveAzureAccess({ org: a.arg("--org"), dataDir });
+      const open = await myOpenTasks({ organizationUrl: access.organizationUrl, auth: access.auth });
+      text = a.has("--inicio")
+        ? renderDayMessage("inicio", { dateYmd, tareas: open }, cfg.templates, cfg.maxChars)
+        : renderDayMessage(
+            "cierre",
+            {
+              dateYmd,
+              entregadas: await deliveredOn({ organizationUrl: access.organizationUrl, auth: access.auth, dateYmd }),
+              en_curso: open.filter((t) => t.category === "InProgress"),
+            },
+            cfg.templates,
+            cfg.maxChars,
+          );
+    }
+    if (!text) throw new Error('chat draft --inicio | --cierre [--date] | --text "<mensaje>" | --file <ruta>');
     const blockers: string[] = [];
     if (text.length > cfg.maxChars) blockers.push(`Mensaje largo: ${text.length} > ${cfg.maxChars} caracteres. Resumir.`);
     const draft: ChatDraft = {
@@ -141,10 +181,11 @@ export async function runChatCommand(sub: string | undefined, a: Argv, dataDir?:
     return;
   }
 
-  console.log(`linky chat <login|status|read|draft|send>
+  console.log(`linky chat <login|status|read|template|draft|send>
   login    navegador visible: inicias sesión en Google, abres el chat de reporte y cierras la ventana
   read     últimos mensajes del chat (formato/estilo, verificación)
-  draft    --text "<mensaje>" | --file <ruta>   prepara el mensaje y su hash
+  template --inicio "<texto>" --cierre "<texto>" --item "<línea>"   formato del área de la persona
+  draft    --inicio | --cierre [--date] [--org] (desde Azure) o --text/--file   prepara el mensaje y su hash
   send     --draft <archivo> --approve --snapshot <hash>   publica (headless) y verifica`);
   if (sub) process.exitCode = 1;
 }

@@ -207,3 +207,25 @@ describe("google chat (determinista)", () => {
     expect(chatDraftHash("hola", "https://chat.google.com/u/0/app/chat/X2")).not.toBe(a);
   });
 });
+
+describe("mensajes de inicio y cierre", async () => {
+  const { renderDayMessage } = await import("../agent/lib/chat/dayMessages.js");
+  const task = (id: number, title: string) => ({ id, title, state: "x", category: "InProgress", project: "P", url: `https://e/${id}` });
+
+  it("usa la plantilla del área y marca listas vacías", () => {
+    const msg = renderDayMessage(
+      "cierre",
+      { dateYmd: "2026-11-04", entregadas: [task(1, "Uno")], en_curso: [] },
+      { cierre: "[{fecha}] OK: {entregadas} | Sigue: {en_curso}", item: "#{id}", vacio: "nada" },
+    );
+    expect(msg).toBe("[04/11] OK: #1 | Sigue: nada");
+  });
+
+  it("se ajusta al tope: acorta títulos y luego agrupa, sin perder los números visibles", () => {
+    const many = Array.from({ length: 12 }, (_, i) => task(100 + i, "Título bastante largo de una tarea de ejemplo número " + i));
+    const msg = renderDayMessage("inicio", { dateYmd: "2026-11-05", tareas: many }, {}, 300);
+    expect(msg.length).toBeLessThanOrEqual(300);
+    expect(msg).toContain("#100");
+    expect(msg).toMatch(/… y \d+ más/);
+  });
+});

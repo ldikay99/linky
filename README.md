@@ -30,17 +30,9 @@ No es una app ni una página web: son comandos locales. Funciona igual en **Wind
 
 ## Cómo funciona
 
-```mermaid
-flowchart LR
-    P([Tú]) -- "registra mi día" --> IA[Asistente de IA]
-    IA -- comandos --> L[Linky CLI]
-    L -- "REST + PAT o sesión" --> AZ[(Azure DevOps<br/>una o varias organizaciones)]
-    L -- "HTTP + tu sesión" --> R[(Ripor)]
-    L -- "navegador headless" --> GC[(Google Chat)]
-    L -. "secretos" .-> K[[Llavero del sistema]]
-    L -- "preview + hash" --> IA
-    IA -- "¿apruebas?" --> P
-```
+<p align="center">
+  <img src="docs/assets/como-funciona.svg" alt="Tú le pides a tu asistente de IA que registre tu día; la IA usa el CLI de Linky, que habla con Azure DevOps (REST con PAT), Ripor (HTTP con tu sesión) y Google Chat (navegador headless), guarda los secretos en el llavero del sistema y te muestra un preview para que apruebes." width="820">
+</p>
 
 1. **Conectas tus cuentas una sola vez.** Azure con PAT (recomendado) o iniciando sesión en el navegador; Ripor iniciando sesión con tu cuenta de Google. El navegador se abre solo para eso y se cierra solo.
 2. **Desde ahí todo va por petición directa**, sin navegador: rápido y sin depender de la interfaz.
