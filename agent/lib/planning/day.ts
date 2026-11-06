@@ -131,7 +131,8 @@ export function buildDayPlan(profile: LinkyProfile, input: DayInput): DayPlan {
     });
   }
 
-  const content = activities.filter((a) => !a.stateOnly);
+  // La jornada se valida solo cuando se registra trabajo hecho (refinar una HU o planear no exige cubrir el día).
+  const content = activities.filter((a) => !a.stateOnly && (a.kind === "done" || a.timeRange));
   const coverage = content.length
     ? validateDayCoverage(profile.schedule, date, content)
     : { requiredMinutes: 0, coveredMinutes: 0, gaps: [], overlaps: [], questions: [] as string[] };
