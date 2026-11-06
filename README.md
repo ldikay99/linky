@@ -167,4 +167,4 @@ El CI corre en Windows, macOS y Linux.
 
 ---
 
-<p align="center">Creado por <b>Jonathan Contreras</b></p>
+<p align="center">Creado por <b>Jonathan Contreras</b> · Licencia <a href="LICENSE">MIT</a></p>

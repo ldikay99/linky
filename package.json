@@ -44,6 +44,7 @@
     "linky": "./agent/lib/cli/main.ts"
   },
   "author": "Jonathan Contreras",
+  "license": "MIT",
   "optionalDependencies": {
     "playwright-core": "1.64.0"
   }
