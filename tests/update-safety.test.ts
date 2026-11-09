@@ -75,6 +75,27 @@ describe("actualizar un item existente sin perder datos", () => {
     expect((await reconcileClientKey(client, "k2", dataDir)).status).toBe("reconciled");
   });
 
+  it("solo campos (comentario vacío) no deja comentario y el preview no dice que lo haya", async () => {
+    const { client, task, profile } = await setup();
+    const plan = buildDayPlan(profile, {
+      date: "2026-11-05",
+      activities: [
+        {
+          kind: "planned",
+          title: "Etiqueta",
+          shortDescription: "Se agrega la etiqueta del proyecto a la tarea ya entregada.",
+          workItemType: "Task",
+          workItemId: task.id,
+          fields: { "System.Tags": "A; B", "System.History": "" },
+        },
+      ],
+    });
+    const preview = await previewDayChanges(profile, { ...plan, missingQuestions: [] }, client, {});
+    const up = preview.changes.find((c) => c.op === "update");
+    expect(up && up.op === "update" && "System.History" in up.fields).toBe(false);
+    expect(preview.humanSummary.join(" ")).toMatch(/System.Tags \(sin comentario\)/);
+  });
+
   it("5xx, cortes y JSON inválido son inciertos", () => {
     for (const m of ["createWorkItem HTTP 504: Gateway Time-out", "TypeError: terminated", "Unexpected end of JSON input"]) {
       expect(isUncertainError(new Error(m))).toBe(true);
