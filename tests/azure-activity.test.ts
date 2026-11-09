@@ -86,6 +86,30 @@ describe("azure activity del día", () => {
     expect(r.items.map((i) => i.id)).toEqual([1]);
   });
 
+  it("una Task registrada al día siguiente cuenta sus horas en su fecha de inicio", async () => {
+    const json = (b: unknown) => new Response(JSON.stringify(b), { headers: { "content-type": "application/json" } });
+    const fetchImpl = (async (input: string | URL) => {
+      const u = String(input);
+      if (u.includes("connectionData")) return json({ authenticatedUser: { id: ME } });
+      if (u.includes("/wiql")) return json({ workItems: [{ id: 7 }] });
+      if (u.includes("workitemsbatch")) return json({ value: [{ id: 7, fields: { "System.Title": "Del jueves", "System.TeamProject": "P" } }] });
+      return json({
+        value: [
+          // Creada el viernes con el trabajo del jueves.
+          { id: 1, rev: 1, revisedBy: { id: ME }, fields: { "System.ChangedDate": { newValue: "2026-11-06T15:00:00Z" }, "Microsoft.VSTS.Scheduling.StartDate": { newValue: "2026-11-05T13:30:00Z" }, "Microsoft.VSTS.Scheduling.CompletedWork": { newValue: 2 } } },
+          { id: 2, rev: 2, revisedBy: { id: ME }, fields: { "System.ChangedDate": { newValue: "2026-11-06T16:00:00Z" }, "System.State": { oldValue: "1. En Planeacion", newValue: "3. Entregado" } } },
+        ],
+      });
+    }) as typeof fetch;
+    const read = (dateYmd: string) => readDayActivity({ organizationUrl: ORG, auth: { pat: "synthetic-pat-x" }, dateYmd, timeZone: "America/Bogota", fetchImpl });
+    const jue = await read("2026-11-05");
+    expect(jue.completedWorkHours).toBe(2);
+    expect(jue.items[0].createdToday).toBe(true);
+    const vie = await read("2026-11-06");
+    expect(vie.completedWorkHours).toBe(0);
+    expect(vie.items[0].stateChanges).toEqual(["1. En Planeacion → 3. Entregado"]);
+  });
+
   it("sin auth válida Azure responde 203/HTML → error claro", () => {
     const res = new Response("<html/>", { status: 203, headers: { "content-type": "text/html" } });
     expect(() => assertAzureAuthenticated(res)).toThrow(/AZURE_AUTH_INVALID/);

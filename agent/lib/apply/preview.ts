@@ -125,6 +125,9 @@ export async function previewDayChanges(
         }
         const picked = pickWritableFields(meta, desired);
         for (const s of picked.skipped) summary.push(`Omitido en #${act.workItemId}: ${s}`);
+        // Un comentario vacío pedido explícitamente = cambio de campos sin comentario.
+        const history = picked.applied["System.History"];
+        if (typeof history === "string" && !history.trim()) delete picked.applied["System.History"];
         const contentKey = createHash("sha256").update(JSON.stringify(picked.applied)).digest("hex").slice(0, 12);
         changes.push({
           op: "update",
@@ -138,7 +141,7 @@ export async function previewDayChanges(
         summary.push(
           `Actualizar #${act.workItemId} (${typeName}): ${act.title} — campos: ${Object.keys(picked.applied)
             .filter((k) => k !== "System.History")
-            .join(", ") || "(ninguno)"} + comentario.`,
+            .join(", ") || "(ninguno)"}${picked.applied["System.History"] ? " + comentario" : " (sin comentario)"}.`,
         );
       }
 

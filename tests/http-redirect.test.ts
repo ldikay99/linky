@@ -41,7 +41,8 @@ describe("http client redirect:error", () => {
     );
     const bytes = new Uint8Array([1, 2, 3, 4, 5]);
     await client.uploadAttachment("a.png", "image/png", bytes);
-    expect(contentType).toBe("image/png");
+    // Azure responde 400 a image/png en este endpoint: siempre octet-stream.
+    expect(contentType).toBe("application/octet-stream");
     expect(body).toBeInstanceOf(Uint8Array);
     expect((body as Uint8Array).length).toBe(5);
   });

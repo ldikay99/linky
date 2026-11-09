@@ -187,18 +187,16 @@ export function createHttpAzureClient(auth: AzureAuth, fetchImpl: typeof fetch =
       return (await res.json()) as WorkItem;
     },
 
-    async uploadAttachment(fileName, contentType, bytes) {
-      const q = new URLSearchParams({ fileName, api_version: "7.1" });
-      // Azure expects api-version as query param name with hyphen
+    async uploadAttachment(fileName, _contentType, bytes) {
+      // Azure solo acepta octet-stream en este endpoint (con image/png responde 400); el tipo sale del fileName.
       const res = await api(
         `/${project}/_apis/wit/attachments?fileName=${encodeURIComponent(fileName)}&api-version=7.1`,
         {
           method: "POST",
-          contentType: contentType || "application/octet-stream",
+          contentType: "application/octet-stream",
           rawBody: bytes,
         },
       );
-      void q;
       if (!res.ok) throw new Error(`uploadAttachment HTTP ${res.status}: ${await res.text()}`);
       const data = (await res.json()) as { id: string; url: string };
       return { id: data.id, url: data.url, fileName };

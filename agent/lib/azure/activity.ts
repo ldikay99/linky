@@ -74,7 +74,8 @@ export async function readDayActivity(input: {
   );
   const me = conn.authenticatedUser;
 
-  // Margen de un día antes por diferencias de zona horaria; se filtra exacto después.
+  // Margen de un día antes por diferencias de zona horaria; se filtra exacto después. Sin tope superior: el trabajo
+  // de este día pudo registrarse días después (con su fecha de inicio).
   const since = new Date(Date.parse(`${input.dateYmd}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
   const wiql = await get<{ workItems: Array<{ id: number }> }>(`${org}/_apis/wit/wiql?api-version=7.1&$top=200`, {
     method: "POST",
@@ -111,12 +112,17 @@ export async function readDayActivity(input: {
     );
     chunk.forEach((wi, k) => updatesById.set(wi.id, results[k].value));
   }
+  // Día de trabajo de un cambio: si el mismo cambio fija la fecha de inicio (trabajo registrado después, p. ej.
+  // la Task del jueves creada el viernes), cuenta para ese día; si no, para el día en que se hizo el cambio.
+  const workDay = (u: Update): string | undefined => {
+    const changed = u.fields?.["System.ChangedDate"]?.newValue;
+    if (typeof changed !== "string") return undefined;
+    const start = u.fields?.["Microsoft.VSTS.Scheduling.StartDate"]?.newValue;
+    return localYmd(typeof start === "string" && !Number.isNaN(Date.parse(start)) ? start : changed, timeZone);
+  };
   for (const wi of batch.value) {
     const updates = { value: updatesById.get(wi.id) ?? [] };
-    const mine = updates.value.filter((u) => {
-      const changed = u.fields?.["System.ChangedDate"]?.newValue;
-      return u.revisedBy?.id === me.id && typeof changed === "string" && localYmd(changed, timeZone) === input.dateYmd;
-    });
+    const mine = updates.value.filter((u) => u.revisedBy?.id === me.id && workDay(u) === input.dateYmd);
     if (!mine.length) continue;
     const project = String(wi.fields["System.TeamProject"] ?? "");
     const item: DayActivityItem = {
