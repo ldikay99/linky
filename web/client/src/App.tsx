@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Attachment, SessionInfo } from "../../shared/protocol";
 import { ApiError, api, setCsrf } from "./api";
+import { clearFileCache } from "./fileCache";
 import { ChatView } from "./features/chat/ChatView";
+import { MemoryPanel } from "./features/memory/MemoryPanel";
 import { ConnectorsPanel, useConnectors } from "./features/connectors/Connectors";
 import { Onboarding } from "./features/onboarding/Onboarding";
 import { Sidebar } from "./features/sidebar/Sidebar";
@@ -42,6 +44,7 @@ function Workspace({ session, onSession }: { session: SessionInfo; onSession: (s
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [panel, setPanel] = useState(false);
+  const [memoryOpen, setMemoryOpen] = useState(false);
   const [onboarding, setOnboarding] = useState(!session.onboarded);
   const [viewer, setViewer] = useState<{ items: Attachment[]; index: number } | null>(null);
   const isMobile = useRef(window.matchMedia("(max-width: 860px)"));
@@ -114,6 +117,10 @@ function Workspace({ session, onSession }: { session: SessionInfo; onSession: (s
           setPanel(true);
           closeMobile();
         }}
+        onMemory={() => {
+          setMemoryOpen(true);
+          closeMobile();
+        }}
         onOnboarding={() => {
           setOnboarding(true);
           closeMobile();
@@ -121,6 +128,7 @@ function Workspace({ session, onSession }: { session: SessionInfo; onSession: (s
         onDeleteData={async () => {
           try {
             const r = await api.deleteMyData();
+            clearFileCache();
             await chat.clearAll();
             toast("ok", `Se borraron ${r.conversations} conversación(es) y ${r.files} adjunto(s).`);
           } catch (e) {
@@ -141,6 +149,7 @@ function Workspace({ session, onSession }: { session: SessionInfo; onSession: (s
         onOpenFile={(a, all) => setViewer({ items: all, index: Math.max(0, all.findIndex((x) => x.id === a.id)) })}
         onAction={(a) => (a === "open-connectors" ? setPanel(true) : setOnboarding(true))}
       />
+      <MemoryPanel open={memoryOpen} onClose={() => setMemoryOpen(false)} />
       <ConnectorsPanel open={panel} onClose={() => setPanel(false)} state={connectors} onAsk={(t) => void chat.send(t, [])} />
       <FileViewer items={viewer?.items ?? []} index={viewer?.index ?? 0} onClose={() => setViewer(null)} onIndex={(i) => setViewer((v) => (v ? { ...v, index: i } : v))} />
       {!session.ai.configured && <span className="sr-only">Modo de acciones directas: el asistente de IA no está configurado.</span>}

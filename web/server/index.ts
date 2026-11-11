@@ -18,6 +18,7 @@ import { killAllChildren } from "../../agent/lib/mcp/server.js";
 import { createAi } from "./ai/providers.js";
 import { loadConfig } from "./config.js";
 import { createFiles } from "./files/files.js";
+import { createMemory } from "./memory/memory.js";
 import { createConnectors } from "./linky/connectors.js";
 import { createWorkspaces } from "./linky/workspace.js";
 import { registerRoutes } from "./routes.js";
@@ -35,6 +36,7 @@ async function main() {
   const files = createFiles(config.dataDir, keys, store);
   const workspaces = createWorkspaces(config, keys);
   const ai = createAi(config);
+  const memory = createMemory(store, ai.embedder);
   const connectors = createConnectors();
   const auth = createAuth(config, store);
 
@@ -97,7 +99,7 @@ async function main() {
     if (!reply.sent) reply.code(status).send({ error: message });
   });
   auth.register(app);
-  registerRoutes(app, { config, ai, store, files, workspaces }, connectors);
+  registerRoutes(app, { config, ai, store, files, workspaces, memory }, connectors);
 
   if (existsSync(DIST)) {
     await app.register(fastifyStatic, { root: DIST, index: false, wildcard: false, maxAge: "1y", immutable: true, serveDotFiles: false });

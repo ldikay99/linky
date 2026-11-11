@@ -96,6 +96,7 @@ export function Sidebar({
   onRename,
   onDelete,
   onConnectors,
+  onMemory,
   onOnboarding,
   onDeleteData,
   onLogout,
@@ -113,6 +114,7 @@ export function Sidebar({
   onRename: (id: string, t: string) => void;
   onDelete: (id: string) => void;
   onConnectors: () => void;
+  onMemory: () => void;
   onOnboarding: () => void;
   onDeleteData: () => Promise<void>;
   onLogout: () => void;
@@ -145,6 +147,7 @@ export function Sidebar({
     .join("");
 
   const items: MenuItem[] = [
+    { id: "mem", label: "Memoria", icon: "memory", onSelect: onMemory },
     { id: "conn", label: "Conectores", icon: "plug", onSelect: onConnectors },
     { id: "onb", label: "Configuración inicial", icon: "steps", onSelect: onOnboarding },
     { id: "sep1", separator: true },
@@ -157,7 +160,7 @@ export function Sidebar({
       onSelect: async () => {
         const ok = await confirm({
           title: "Borrar historial y adjuntos",
-          message: "Se borran todas tus conversaciones y archivos adjuntos de este equipo. Lo registrado en Azure y Ripor no cambia. No se puede deshacer.",
+          message: "Se borran todas tus conversaciones y archivos adjuntos de este equipo. Tu memoria y lo registrado en Azure y Ripor no cambian. No se puede deshacer.",
           confirmLabel: "Borrar todo",
           tone: "danger",
         });

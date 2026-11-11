@@ -55,11 +55,26 @@ No inventes horas, tareas, reuniones ni evidencias: si falta información, pregu
 en Azure menciona a Linky. Las descripciones (Ripor y Azure) no llevan fechas.
 `.trim();
 
-export function systemPrompt(ctx: { userName: string; today: string; timeZone: string }): string {
+const MEMORY_RULES = `
+Memoria:
+- Tienes memoria de esta persona entre conversaciones. Cuando aprendas algo estable sobre cómo trabaja (etiquetas,
+  a quién mencionar, HU o proyectos habituales, formato que prefiere, horarios, correcciones que te hizo), guárdalo
+  con memoria_guardar en una frase clara. No guardes datos del día a día que ya están en Azure o Ripor.
+- Nunca guardes tokens, contraseñas, cookies ni datos sensibles.
+- Si la persona menciona algo de antes ("como la vez pasada", "lo de ayer"), búscalo con memoria_buscar.
+- Lo que está en "Recuerdos" son preferencias que la persona ya te enseñó: síguelas.
+`.trim();
+
+export function systemPrompt(ctx: { userName: string; today: string; timeZone: string; facts?: string[]; summary?: string }): string {
   return [
     WEB_RULES,
+    MEMORY_RULES,
     `Persona: ${ctx.userName || "(nombre aún sin conectar)"}. Hoy es ${ctx.today} (zona ${ctx.timeZone}).`,
+    ctx.facts?.length ? `Recuerdos de la persona:\n${ctx.facts.map((f) => `- ${f}`).join("\n")}` : "",
+    ctx.summary ? `Resumen de la parte anterior de esta conversación:\n${ctx.summary}` : "",
     "Conocimiento de Linky (reglas y skills):",
     KNOWLEDGE,
-  ].join("\n\n");
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }

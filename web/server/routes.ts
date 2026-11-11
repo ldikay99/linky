@@ -8,7 +8,7 @@ import type { z } from "zod";
 import { experimental_transcribe as transcribe } from "ai";
 import { MSG } from "../shared/messages.js";
 import type { Attachment, ConversationSummary, FileKind, SessionInfo } from "../shared/protocol.js";
-import { LIMITS, Schemas, firstError } from "../shared/schemas.js";
+import { LIMITS, Schemas, firstError, memorySchema } from "../shared/schemas.js";
 import { NEW_TITLE, runTurn, type Deps } from "./chat/engine.js";
 import { sniffAudio } from "./files/sniff.js";
 import type { Connectors } from "./linky/connectors.js";
@@ -65,6 +65,37 @@ export function registerRoutes(app: FastifyInstance, deps: Deps, connectors: Con
     await rm(ws(req).scratchDir, { recursive: true, force: true });
     store.audit(u.id, "data.deleted", `${removed.conversations} conversaciones, ${removed.files} archivos`);
     return { ok: true, ...removed };
+  });
+
+  // ---- memoria (lo que Linky recuerda de la persona; visible y borrable por ella)
+  app.get("/api/memory", async (req) => {
+    const u = user(req);
+    return {
+      facts: store.memories(u.id, "fact", 500).map((m) => ({ id: m.id, text: m.text, createdAt: m.createdAt })),
+      chunks: store.countMemories(u.id, "chunk"),
+      semantic: deps.memory.semantic,
+    };
+  });
+
+  app.post("/api/memory", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (req, reply) => {
+    const body = parse(memorySchema, req.body, reply);
+    if (!body) return;
+    const r = await deps.memory.remember(user(req).id, body.text);
+    if (!r.ok) return bad(reply, r.reason === "secreto" ? MSG.memorySecret : MSG.memoryEmpty);
+    return { ok: true, id: r.id, duplicate: Boolean(r.duplicate) };
+  });
+
+  app.delete<{ Params: { id: string } }>("/api/memory/:id", async (req, reply) => {
+    const id = parse(Schemas.id, req.params.id, reply);
+    if (!id) return;
+    if (!store.deleteMemory(user(req).id, id)) return bad(reply, MSG.memoryNotFound, 404);
+    return { ok: true };
+  });
+
+  app.delete("/api/memory", { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } }, async (req) => {
+    const n = store.deleteMemories(user(req).id, "fact");
+    store.audit(user(req).id, "memory.deleted", String(n));
+    return { ok: true, deleted: n };
   });
 
   // ---- conversaciones
@@ -148,12 +179,16 @@ export function registerRoutes(app: FastifyInstance, deps: Deps, connectors: Con
 
   // ---- archivos
   app.post("/api/files", { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (req, reply) => {
+    const t0 = Date.now();
     const part = await req.file({ limits: { fileSize: config.maxUploadBytes, files: 1 } });
     if (!part) return bad(reply, MSG.fileMissing);
     const bytes = await part.toBuffer();
     if (part.file.truncated) return bad(reply, MSG.fileTooBig(maxMb), 413);
     try {
       const row = await files.save(user(req).id, part.filename, bytes);
+      const ms = Date.now() - t0;
+      // Diagnóstico sin datos de la persona: solo tamaño, tipo y tiempo.
+      (ms > 5_000 ? req.log.warn : req.log.info).call(req.log, { upload: { bytes: bytes.length, type: row.mediaType, ms } }, "adjunto recibido");
       return { id: row.id, name: row.name, mediaType: row.mediaType, kind: row.kind as FileKind, size: row.size } satisfies Attachment;
     } catch (e) {
       return bad(reply, (e as Error).message, (e as { statusCode?: number }).statusCode ?? 400);

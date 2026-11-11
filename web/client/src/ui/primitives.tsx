@@ -128,7 +128,7 @@ export function Overlay({ open, onClose, children, kind = "modal", label }: { op
       requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)));
     } else if (mounted) {
       setVisible(false);
-      const t = setTimeout(() => setMounted(false), 260);
+      const t = setTimeout(() => setMounted(false), 170); // = duración de salida (150 ms) + margen
       (lastFocus.current as HTMLElement | null)?.focus?.();
       return () => clearTimeout(t);
     }

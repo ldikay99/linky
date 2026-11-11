@@ -9,6 +9,7 @@ import type { Ai } from "../server/ai/providers.js";
 import { loadConfig } from "../server/config.js";
 import { runTurn, type Deps } from "../server/chat/engine.js";
 import { createFiles } from "../server/files/files.js";
+import { createMemory } from "../server/memory/memory.js";
 import { createWorkspaces } from "../server/linky/workspace.js";
 import { KeyRing } from "../server/security/crypto.js";
 import { openStore } from "../server/store/db.js";
@@ -41,10 +42,10 @@ async function setup(responses: unknown[][]) {
   const files = createFiles(dataDir, keys, store);
   let call = 0;
   const model = new MockLanguageModelV4({ doStream: async () => streamOf(responses[Math.min(call++, responses.length - 1)]) as never });
-  const ai: Ai = { status: { configured: true, provider: "anthropic", model: "mock" }, model, transcriber: null, problem: null };
+  const ai: Ai = { status: { configured: true, provider: "anthropic", model: "mock" }, model, transcriber: null, embedder: null, problem: null };
   // Persona que no es dueña: su Linky queda aislado en el directorio de la prueba (nunca toca ~/.linky).
   const user = store.createUser("Persona Prueba", null, "member");
-  const deps: Deps = { config, ai, store, files, workspaces: createWorkspaces(config, keys) };
+  const deps: Deps = { config, ai, store, files, workspaces: createWorkspaces(config, keys), memory: createMemory(store, null) };
   return { deps, store, files, user, model };
 }
 

@@ -40,6 +40,16 @@ export const MSG = {
   fileNotFound: "Archivo no encontrado.",
   filePreview: "Este formato no tiene vista previa. Puedes descargarlo.",
 
+  uploadStalled: "La subida se detuvo. Reintenta.",
+  uploadRetry: "Reintentar",
+  pastedAsFile: "El texto era muy largo: se adjuntó como archivo.",
+
+  // memoria
+  memoryEmpty: "Escribe qué debe recordar Linky.",
+  memoryTooLong: "Máximo 1.000 caracteres por recuerdo.",
+  memorySecret: "Eso parece una clave o un token. Linky no guarda secretos en la memoria.",
+  memoryNotFound: "Ese recuerdo ya no existe.",
+
   // dictado
   sttOff: "El dictado del servidor no está activo.",
   audioInvalid: "Audio no válido.",

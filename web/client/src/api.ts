@@ -67,7 +67,8 @@ async function request<T>(method: string, url: string, body?: unknown, signal?: 
   return data;
 }
 
-export type AzureOrg = { organizationUrl: string; primary: boolean; status: string };
+export type MemoryFact = { id: string; text: string; createdAt: number };
+export type AzureOrg ={ organizationUrl: string; primary: boolean; status: string };
 
 export const api = {
   logout: () => request<{ ok: true }>("POST", "/api/auth/logout", {}),
@@ -94,19 +95,48 @@ export const api = {
   classifyMeeting: (title: string, action: "confirm" | "ignore") => request<{ ok: true }>("POST", "/api/onboarding/meetings", { title, action }),
   saveProfile: (form: ProfileForm) => request<{ ok: true }>("POST", "/api/onboarding/profile", form),
 
+  memory: () => request<{ facts: MemoryFact[]; chunks: number; semantic: boolean }>("GET", "/api/memory"),
+  addMemory: (text: string) => request<{ ok: true; id: string; duplicate: boolean }>("POST", "/api/memory", { text }),
+  deleteMemory: (id: string) => request<{ ok: true }>("DELETE", `/api/memory/${id}`),
+  clearMemory: () => request<{ ok: true; deleted: number }>("DELETE", "/api/memory"),
+
   preview: (id: string) => request<FilePreview>("GET", `/api/files/${id}/preview`),
   fileUrl: (id: string, download = false) => `/api/files/${id}${download ? "?download=1" : ""}`,
 };
 
-/** Sube un archivo con progreso (fetch todavía no expone el progreso de subida). */
+const STALL_MS = 20_000;
+
+/**
+ * Sube un archivo con progreso (fetch todavía no expone el progreso de subida).
+ * Si deja de avanzar 20 s se corta (código "stalled") para reintentar, en vez de quedar colgada.
+ */
 export function uploadFile(file: File, onProgress: (ratio: number) => void, signal?: AbortSignal, retried = false): Promise<Attachment> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
+    let last = Date.now();
+    const watchdog = window.setInterval(() => {
+      if (Date.now() - last > STALL_MS) {
+        window.clearInterval(watchdog);
+        xhr.abort();
+        reject(Object.assign(new ApiError(MSG.uploadStalled, 0), { code: "stalled" }));
+      }
+    }, 2_000);
+    const done = () => window.clearInterval(watchdog);
     xhr.open("POST", "/api/files");
     xhr.setRequestHeader("X-Linky-CSRF", csrf);
     xhr.responseType = "json";
-    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
+    xhr.upload.onprogress = (e) => {
+      last = Date.now();
+      if (e.lengthComputable) onProgress(e.loaded / e.total);
+    };
+    // Subido el último byte, el servidor cifra y guarda: no cuenta como detenida.
+    xhr.upload.onload = () => {
+      last = Date.now() + STALL_MS;
+      onProgress(1);
+    };
+    xhr.onabort = done;
     xhr.onload = () => {
+      done();
       const body = (xhr.response ?? {}) as Attachment & ErrorBody;
       if (xhr.status >= 200 && xhr.status < 300) return resolve(body);
       if (!retried && isRenewable(xhr.status, body)) {
@@ -116,8 +146,14 @@ export function uploadFile(file: File, onProgress: (ratio: number) => void, sign
       }
       reject(new ApiError(body.error ?? MSG.internal, xhr.status));
     };
-    xhr.onerror = () => reject(new ApiError(MSG.network, 0));
-    signal?.addEventListener("abort", () => xhr.abort());
+    xhr.onerror = () => {
+      done();
+      reject(new ApiError(MSG.network, 0));
+    };
+    signal?.addEventListener("abort", () => {
+      done();
+      xhr.abort();
+    });
     const form = new FormData();
     form.append("file", file, file.name);
     xhr.send(form);

@@ -9,6 +9,9 @@ export const LIMITS = {
   messageChars: 32_000,
   attachments: 12,
   titleChars: 120,
+  /** Texto pegado más largo que esto se adjunta como archivo (el modelo lo lee igual, y el chat queda legible). */
+  pasteAsFileChars: 4_000,
+  memoryChars: 1_000,
   uploadMbDefault: 25,
   audioMb: 12,
 } as const;
@@ -79,6 +82,29 @@ export const Schemas = {
     })
     .refine((p) => toMin(p.lunchEnd) > toMin(p.lunchStart), { error: MSG.range, path: ["lunchEnd"] }),
 };
+
+/**
+ * ¿Parece un secreto? Tokens largos sin espacios, llaves privadas o "clave: valor". La memoria nunca los guarda.
+ */
+export function looksSecret(text: string): boolean {
+  // Cadena larga mezclando letras y números (tokens, PAT, cookies); las URL y palabras normales no califican.
+  const tokenLike = (text.match(/[A-Za-z0-9_\-+=]{32,}/g) ?? []).some((t) => /[0-9]/.test(t) && /[A-Za-z]/.test(t));
+  return (
+    tokenLike ||
+    /-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(text) ||
+    /\b(contraseña|password|passwd|clave|token|secret|secreto|api[_ -]?key|pat)\s*[:=]\s*\S{6,}/i.test(text) ||
+    /\b(sk|pk|ghp|gho|xox[abp])[-_][A-Za-z0-9]{10,}/.test(text)
+  );
+}
+
+export const memorySchema = z.object({
+  text: z
+    .string()
+    .trim()
+    .min(3, { error: MSG.memoryEmpty })
+    .max(LIMITS.memoryChars, { error: MSG.memoryTooLong })
+    .refine((t) => !looksSecret(t), { error: MSG.memorySecret }),
+});
 
 /** Primer error de una validación como { campo: mensaje } para mostrar junto a cada campo. */
 export function fieldErrors(error: z.ZodError): Record<string, string> {
