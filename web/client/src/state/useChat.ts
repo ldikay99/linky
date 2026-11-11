@@ -3,7 +3,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ApprovalPart, Attachment, ConversationSummary, StreamEvent, ToolPart, UiMessage, UiPart } from "../../../shared/protocol";
-import { api, stream } from "../api";
+import { MSG } from "../../../shared/messages";
+import { ApiError, api, stream } from "../api";
 
 export type ChatState = ReturnType<typeof useChat>;
 
@@ -107,7 +108,7 @@ export function useChat(onError: (message: string) => void) {
       try {
         await stream(body, apply, ctrl.signal);
       } catch (e) {
-        if (!ctrl.signal.aborted) apply({ type: "error", message: (e as Error).message });
+        if (!ctrl.signal.aborted) apply({ type: "error", message: e instanceof ApiError ? e.message : MSG.network });
       } finally {
         if (abortRef.current === ctrl) abortRef.current = null;
         setBusy(false);
@@ -153,5 +154,13 @@ export function useChat(onError: (message: string) => void) {
     [onError, open],
   );
 
-  return { conversations, activeId, messages, busy, loading, open, send, decide, stop, rename, remove };
+  /** Tras borrar el historial: chat vacío y lista recargada desde el servidor. */
+  const clearAll = useCallback(async () => {
+    abortRef.current?.abort();
+    setActiveId(null);
+    setMessages([]);
+    await refreshList();
+  }, [refreshList]);
+
+  return { conversations, activeId, messages, busy, loading, open, send, decide, stop, rename, remove, clearAll };
 }

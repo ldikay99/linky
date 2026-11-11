@@ -3,6 +3,7 @@
  */
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { createPortal } from "react-dom";
+import { Tooltip, type Side } from "./floating";
 import { Icon, type IconName } from "./icons";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
@@ -16,13 +17,14 @@ export function Button({ variant = "secondary", size = "md", icon, loading, chil
   );
 }
 
-export function IconButton({ icon, label, size = "md", active, className = "", tooltip = true, ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { icon: IconName; label: string; size?: "sm" | "md" | "lg"; active?: boolean; tooltip?: boolean }) {
-  const btn = (
-    <button aria-label={label} className={`icon-btn icon-btn--${size} ${active ? "is-active" : ""} ${className}`} {...rest}>
-      <Icon name={icon} size={size === "sm" ? 16 : size === "lg" ? 20 : 18} />
-    </button>
+export function IconButton({ icon, label, size = "md", active, className = "", tooltip = true, side = "top", ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { icon: IconName; label: string; size?: "sm" | "md" | "lg"; active?: boolean; tooltip?: boolean; side?: Side }) {
+  return (
+    <Tooltip text={label} side={side} disabled={!tooltip}>
+      <button aria-label={label} className={`icon-btn icon-btn--${size} ${active ? "is-active" : ""} ${className}`} {...rest}>
+        <Icon name={icon} size={size === "sm" ? 16 : size === "lg" ? 20 : 18} />
+      </button>
+    </Tooltip>
   );
-  return tooltip ? <Tooltip text={label}>{btn}</Tooltip> : btn;
 }
 
 export function Spinner({ size = 16 }: { size?: number }) {
@@ -34,13 +36,7 @@ export function Spinner({ size = 16 }: { size?: number }) {
   );
 }
 
-export function Tooltip({ text, children, side = "top" }: { text: string; children: ReactNode; side?: "top" | "bottom" | "right" }) {
-  return (
-    <span className={`tip tip--${side}`} data-tip={text}>
-      {children}
-    </span>
-  );
-}
+export { Tooltip };
 
 export function Field({ label, hint, error, children }: { label: string; hint?: ReactNode; error?: string | null; children: (id: string) => ReactNode }) {
   const id = useId();
@@ -206,6 +202,44 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         document.body,
       )}
     </ToastCtx.Provider>
+  );
+}
+
+// ---- confirmaciones (todo lo que borra o desvincula pasa por aquí)
+type ConfirmOptions = { title: string; message: string; confirmLabel: string; tone?: "danger" | "default" };
+const ConfirmCtx = createContext<(o: ConfirmOptions) => Promise<boolean>>(async () => false);
+export const useConfirm = () => useContext(ConfirmCtx);
+
+export function ConfirmProvider({ children }: { children: ReactNode }) {
+  const [state, setState] = useState<(ConfirmOptions & { resolve: (v: boolean) => void }) | null>(null);
+  const ask = useCallback((o: ConfirmOptions) => new Promise<boolean>((resolve) => setState({ ...o, resolve })), []);
+  const close = (v: boolean) => {
+    state?.resolve(v);
+    setState(null);
+  };
+  return (
+    <ConfirmCtx.Provider value={ask}>
+      {children}
+      <Overlay open={!!state} onClose={() => close(false)} kind="modal" label={state?.title ?? "Confirmar"}>
+        {state && (
+          <div className="confirm">
+            <span className={`confirm__icon ${state.tone === "danger" ? "is-danger" : ""}`}>
+              <Icon name={state.tone === "danger" ? "alert" : "info"} size={20} />
+            </span>
+            <h2 className="confirm__title">{state.title}</h2>
+            <p className="confirm__text">{state.message}</p>
+            <div className="confirm__actions">
+              <Button variant="ghost" onClick={() => close(false)} data-autofocus>
+                Cancelar
+              </Button>
+              <Button variant={state.tone === "danger" ? "danger" : "primary"} onClick={() => close(true)}>
+                {state.confirmLabel}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Overlay>
+    </ConfirmCtx.Provider>
   );
 }
 

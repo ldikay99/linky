@@ -11,6 +11,7 @@ import {
   registerAzureOrg,
   saveOrgPat,
   setPrimaryAzureOrg,
+  unregisterAzureOrg,
 } from "../azure/orgs.js";
 import {
   azureCookieHeader,
@@ -158,7 +159,9 @@ export async function runAzureCommand(sub: string | undefined, a: Argv, dataDir?
   if (sub === "logout") {
     await clearAzureWebSession(store, orgArg);
     if (orgArg && store.delete) await store.delete("linky-azure-devops", `pat:${orgKey(orgArg)}`);
-    print({ ok: true, message: `Credenciales locales eliminadas${orgArg ? ` para ${orgArg}` : " (sesión web)"}. Revoca el PAT en Azure si ya no lo usas.` });
+    // Sin credenciales la organización ya no sirve: se quita del registro para que no aparezca como error.
+    const reg = orgArg ? await unregisterAzureOrg(orgArg, dataDir) : null;
+    print({ ok: true, primary: reg?.primary ?? null, message: `Credenciales locales eliminadas${orgArg ? ` para ${orgArg}` : " (sesión web)"}.` });
     return;
   }
 

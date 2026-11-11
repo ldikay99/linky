@@ -118,6 +118,15 @@ function Workspace({ session, onSession }: { session: SessionInfo; onSession: (s
           setOnboarding(true);
           closeMobile();
         }}
+        onDeleteData={async () => {
+          try {
+            const r = await api.deleteMyData();
+            await chat.clearAll();
+            toast("ok", `Se borraron ${r.conversations} conversación(es) y ${r.files} adjunto(s).`);
+          } catch (e) {
+            toast("error", (e as Error).message);
+          }
+        }}
         onLogout={async () => {
           await api.logout().catch(() => undefined);
           window.location.replace("/");

@@ -4,6 +4,7 @@
  * al CLI por la variable de un solo uso LINKY_AZURE_PAT_INPUT y termina cifrado (llavero o bóveda).
  */
 import type { Connector, ConnectorsResponse, MeetingItem, ProfileForm } from "../../shared/protocol.js";
+import { ORG_URL_RE, PAT_RE } from "../../shared/schemas.js";
 import type { UserRow } from "../store/db.js";
 import { cli, serializedFor, withTempJson, type Workspace } from "./workspace.js";
 
@@ -12,8 +13,8 @@ type Check = { area: string; ok: boolean; detail?: string; fix?: string };
 const CACHE_MS = 90_000;
 const cache = new Map<string, { at: number; value: ConnectorsResponse }>();
 
-export const validOrgUrl = (v: string) => /^https:\/\/(dev\.azure\.com\/[A-Za-z0-9][A-Za-z0-9._-]{0,63}|[A-Za-z0-9][A-Za-z0-9-]{0,63}\.visualstudio\.com)\/?$/.test(v.trim());
-export const plausiblePat = (v: string) => /^[A-Za-z0-9._~+/=-]{20,400}$/.test(v.trim());
+export const validOrgUrl = (v: string) => ORG_URL_RE.test(v.trim());
+export const plausiblePat = (v: string) => PAT_RE.test(v.trim());
 
 function connector(id: Connector["id"], name: string, description: string, checks: Check[], optional: boolean): Connector {
   if (!checks.length) return { id, name, description, state: optional ? "optional" : "disconnected", details: [], optional };
@@ -70,6 +71,27 @@ export function createConnectors() {
     const r = await serializedFor(user.id, () => cli(ws, [which, "login"], { timeoutMs: 600_000 }));
     invalidate(user);
     return r;
+  }
+
+  async function logout(user: UserRow, ws: Workspace, which: "google" | "ripor") {
+    const r = await serializedFor(user.id, () => cli(ws, [which, "logout"], { timeoutMs: 120_000 }));
+    invalidate(user);
+    return r;
+  }
+
+  async function disconnectAzure(user: UserRow, ws: Workspace, organizationUrl: string) {
+    const r = await cli(ws, ["azure", "logout", "--org", organizationUrl.trim().replace(/\/$/, "")], { timeoutMs: 60_000 });
+    invalidate(user);
+    return r;
+  }
+
+  async function azureOrgs(ws: Workspace): Promise<{ primary: string | null; orgs: Array<{ organizationUrl: string; primary: boolean; status: string }> }> {
+    const r = await cli(ws, ["azure", "orgs"], { timeoutMs: 60_000 });
+    const j = r.json as { primary?: string | null; orgs?: Array<{ organizationUrl: string; primary?: boolean; status?: string }> } | null;
+    return {
+      primary: j?.primary ?? null,
+      orgs: (j?.orgs ?? []).map((o) => ({ organizationUrl: o.organizationUrl, primary: Boolean(o.primary), status: String(o.status ?? "") })),
+    };
   }
 
   async function meetings(user: UserRow, ws: Workspace, date?: string): Promise<{ items: MeetingItem[]; error?: string }> {
@@ -136,7 +158,7 @@ export function createConnectors() {
     return r;
   }
 
-  return { status, invalidate, connectAzure, login, meetings, classifyMeeting, devRepos, devScan, devRemove, saveProfile };
+  return { status, invalidate, connectAzure, disconnectAzure, azureOrgs, login, logout, meetings, classifyMeeting, devRepos, devScan, devRemove, saveProfile };
 }
 
 function minutes(hhmm: string) {
