@@ -10,7 +10,6 @@
     "dev": "node scripts/dev.mjs",
     "build": "vite build",
     "start": "tsx server/index.ts",
-    "link": "tsx server/link.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json",
     "audit": "npm audit"

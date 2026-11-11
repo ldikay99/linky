@@ -99,6 +99,8 @@ export function Sidebar({
 }) {
   const [query, setQuery] = useState("");
   const [menu, setMenu] = useState(false);
+  // En el equipo de la persona no hay "cerrar sesión": se entra directo. Llega con el inicio de sesión con cuenta.
+  const canLogout = session.tenancy === "multi";
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = q ? conversations.filter((c) => c.title.toLowerCase().includes(q)) : conversations;
@@ -168,8 +170,8 @@ export function Sidebar({
         </div>
 
         <div className="sidebar__bottom">
-          <div className={`user ${menu ? "is-open" : ""}`}>
-            <button type="button" className="user__btn" onClick={() => setMenu((m) => !m)} aria-expanded={menu}>
+          <div className={`user ${menu ? "is-open" : ""} ${canLogout ? "" : "user--static"}`}>
+            <button type="button" className="user__btn" onClick={() => canLogout && setMenu((m) => !m)} aria-expanded={canLogout ? menu : undefined}>
               <span className="user__avatar">{initials || <Icon name="account" size={16} />}</span>
               <span className="user__meta">
                 <span className="user__name">{session.user.name || "Tu cuenta"}</span>
@@ -177,9 +179,9 @@ export function Sidebar({
                   <Icon name="lock" size={11} /> Datos cifrados
                 </span>
               </span>
-              <Icon name="chevronDown" size={15} className="user__chev" />
+              {canLogout && <Icon name="chevronDown" size={15} className="user__chev" />}
             </button>
-            {menu && (
+            {canLogout && menu && (
               <div className="user__menu" role="menu">
                 <button type="button" role="menuitem" onClick={onLogout}>
                   <Icon name="logout" size={16} /> Cerrar sesión

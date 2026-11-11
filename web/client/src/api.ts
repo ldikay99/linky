@@ -24,6 +24,9 @@ async function request<T>(method: string, url: string, body?: unknown, signal?: 
     headers: { ...(body !== undefined ? { "Content-Type": "application/json" } : {}), ...(method !== "GET" ? { "X-Linky-CSRF": csrf } : {}) },
     body: body !== undefined ? JSON.stringify(body) : undefined,
     signal,
+  }).catch((e: Error) => {
+    if (e.name === "AbortError") throw e;
+    throw new ApiError("No hay conexión con el servidor de Linky.", 0);
   });
   const data = (await res.json().catch(() => ({}))) as T & { error?: string };
   if (!res.ok) throw new ApiError(data.error ?? `Error ${res.status}`, res.status);
@@ -31,7 +34,6 @@ async function request<T>(method: string, url: string, body?: unknown, signal?: 
 }
 
 export const api = {
-  exchange: (token: string) => request<{ ok: true }>("POST", "/api/auth/exchange", { token }),
   logout: () => request<{ ok: true }>("POST", "/api/auth/logout", {}),
   session: () => request<SessionInfo>("GET", "/api/session"),
   completeOnboarding: () => request<{ ok: true }>("POST", "/api/onboarding/complete", {}),

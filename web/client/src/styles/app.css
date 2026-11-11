@@ -911,6 +911,12 @@ kbd {
 .user.is-open .user__btn {
   background: var(--bg-3);
 }
+.user--static .user__btn {
+  cursor: default;
+}
+.user--static .user__btn:hover {
+  background: none;
+}
 .user__avatar {
   width: 32px;
   height: 32px;

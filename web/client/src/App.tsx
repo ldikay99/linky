@@ -25,11 +25,11 @@ function Locked({ message }: { message: string }) {
   return (
     <div className="locked">
       <Isotype size={64} />
-      <h1>Entra a Linky desde tu enlace</h1>
+      <h1>No se pudo abrir Linky</h1>
       <p>{message}</p>
-      <p className="muted small">
-        Ejecuta <code>npm run web</code> en tu equipo y abre el enlace que aparece. Por seguridad vale 10 minutos y sirve una sola vez.
-      </p>
+      <button type="button" className="btn btn--primary btn--md" onClick={() => window.location.reload()}>
+        <span>Reintentar</span>
+      </button>
     </div>
   );
 }
@@ -145,23 +145,12 @@ export function App() {
 
   useEffect(() => {
     (async () => {
-      const m = /[#&]t=([A-Za-z0-9_-]{32,128})/.exec(window.location.hash);
-      if (m) {
-        // El token del enlace se cambia por la cookie de sesión y desaparece de la barra de direcciones.
-        history.replaceState(null, "", window.location.pathname);
-        try {
-          await api.exchange(m[1]);
-        } catch (e) {
-          setLocked((e as Error).message);
-          return;
-        }
-      }
       try {
         const s = await api.session();
         setCsrf(s.csrf);
         setSession(s);
       } catch (e) {
-        setLocked(e instanceof ApiError && e.status === 401 ? "Tu sesión no está activa." : (e as Error).message);
+        setLocked(e instanceof ApiError && e.status === 0 ? "No hay conexión con el servidor de Linky." : (e as Error).message);
       }
     })();
   }, []);

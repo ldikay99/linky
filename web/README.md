@@ -7,6 +7,7 @@ dictado por voz. Convive con el CLI y el servidor MCP: usa los mismos comandos y
 
 | Capa | Decisión | Por qué |
 | --- | --- | --- |
+| Acceso | Directo en el equipo de la persona (solo loopback, Host validado, cookie segura, CSRF) | El inicio de sesión con cuenta y URL por persona llega con el modo `multi`. |
 | Servidor | Node 24 + TypeScript + Fastify 5 | Mismo lenguaje que el CLI (reutiliza sus 30+ herramientas), tipado de punta a punta, rendimiento y un ecosistema de seguridad maduro (helmet, rate-limit). |
 | IA | AI SDK (`ai`) con proveedores oficiales | Un solo código para OpenAI, Claude, Gemini, Vertex, Mistral y DeepSeek; se cambia con variables de entorno. |
 | Datos | SQLite (`node:sqlite`) detrás de la interfaz `Store` | Sin dependencias nativas; al escalar se cambia por Postgres/Cloud SQL sin tocar rutas. |
@@ -32,8 +33,7 @@ el preview que la persona vio.
 
 ```bash
 npm ci && npm run web:install   # una vez
-npm run web                     # compila y abre el navegador con un enlace de entrada de un solo uso
-npm run web:link                # otro enlace sin reiniciar
+npm run web                     # compila y abre http://127.0.0.1:4780 (se entra directo)
 npm run web:dev                 # desarrollo con recarga
 npm run web:test                # pruebas
 ```
@@ -44,10 +44,9 @@ En modo `single` (por defecto) la web usa tu Linky de siempre: lo que ya conecta
 
 ```bash
 npm run docker:up     # crea la clave maestra en .secrets/ (fuera de git) y levanta el contenedor
-npm run docker:link   # enlace de entrada
 ```
 
-Queda en `http://localhost:4780`, publicado solo en el loopback del anfitrión. El contenedor corre sin root,
+Queda en `http://localhost:4780` y se entra directo, publicado solo en el loopback del anfitrión. El contenedor corre sin root,
 con sistema de archivos de solo lectura, sin capacidades, y guarda todo en el volumen `linky-data` (cifrado).
 Para exponerlo a otras personas: detrás de un proxy TLS con `LINKY_WEB_PUBLIC_URL=https://…`, sin
 `LINKY_WEB_ALLOW_HTTP` y con `LINKY_WEB_TENANCY=multi`.
