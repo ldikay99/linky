@@ -8,6 +8,8 @@ import { applyPlanningMargin, summarizeEstimateVsActual } from "./estimates.js";
 
 export type DayInput = {
   date?: string;
+  /** La persona pidió registrar solo estas actividades ese día (menos horas que la jornada): los huecos no bloquean. */
+  partialDay?: boolean;
   activities: Array<Partial<DayActivity> & { title: string; kind: "planned" | "done"; shortDescription?: string }>;
 };
 
@@ -134,9 +136,14 @@ export function buildDayPlan(profile: LinkyProfile, input: DayInput): DayPlan {
   // La jornada se valida solo cuando se registra trabajo hecho (refinar una HU o planear no exige cubrir el día).
   const content = activities.filter((a) => !a.stateOnly && (a.kind === "done" || a.timeRange));
   const coverage = content.length
-    ? validateDayCoverage(profile.schedule, date, content)
+    ? validateDayCoverage(profile.schedule, date, content, { allowGaps: input.partialDay })
     : { requiredMinutes: 0, coveredMinutes: 0, gaps: [], overlaps: [], questions: [] as string[] };
   missing.push(...coverage.questions);
+  if (input.partialDay && coverage.gaps.length) {
+    warnings.push(
+      `Día parcial pedido por la persona: ${coverage.coveredMinutes} de ${coverage.requiredMinutes} min registrados; huecos sin llenar: ${coverage.gaps.map((g) => `${g.start}–${g.end}`).join(", ")}.`,
+    );
+  }
   const sums = summarizeEstimateVsActual(activities);
   warnings.push(`${sums.note} Σest=${sums.sumEstimate}min Σreal=${sums.sumActual}min`);
 
