@@ -46,6 +46,30 @@ describe("coverage and schedule interpretation", () => {
     ]);
     expect(cov.gaps.length).toBeGreaterThan(0);
     expect(cov.questions.join(" ")).toMatch(/Hueco/);
+
+    // Día parcial pedido por la persona: los huecos se reportan pero no bloquean.
+    const parcial = validateDayCoverage(
+      profile.schedule,
+      "2026-11-05",
+      [
+        {
+          id: "a1",
+          kind: "done",
+          title: "Solo mañana",
+          shortDescription: "Trabajé en la mañana.",
+          workItemType: "Task",
+          minutesSpent: 120,
+          evidenceLinks: [],
+          evidenceImages: [],
+          meetingOrCallLinks: [],
+          timeRange: { start: "08:30", end: "10:30" },
+        },
+      ],
+      { allowGaps: true },
+    );
+    expect(parcial.gaps.length).toBeGreaterThan(0);
+    expect(parcial.questions).toEqual([]);
+    expect(parcial.ok).toBe(true);
   });
 
   it("margen solo con aprobación y no toca reales", () => {

@@ -213,6 +213,7 @@ Siempre con **HU padre** del mismo proyecto (verificar con lectura). Estimación
 ## Jornada
 
 Validar cobertura del rango laboral sin huecos/superposición; reportar huecos reales y pedir actividad/duración — **no completar ficticio**.
+Si la persona pide registrar solo parte del día (menos horas), el JSON del día lleva `"partialDay": true`: los huecos quedan avisados y no bloquean.
 
 ## Schema
 

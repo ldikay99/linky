@@ -19,6 +19,7 @@ export function validateDayCoverage(
   schedule: ScheduleProfile,
   dateYmd: string,
   activities: DayActivity[],
+  opts: { allowGaps?: boolean } = {},
 ): CoverageResult {
   const window = hoursForDate(schedule, dateYmd);
   if (!window) {
@@ -117,7 +118,8 @@ export function validateDayCoverage(
     if (!a.timeRange && a.minutesSpent != null) covered += a.minutesSpent;
   }
 
-  if (gaps.length) {
+  // Día parcial pedido por la persona: los huecos se reportan pero no se preguntan (no se inventa con qué llenarlos).
+  if (gaps.length && !opts.allowGaps) {
     for (const g of gaps) {
       questions.push(
         `Hueco ${g.start}–${g.end} (${g.minutes} min): ¿qué actividad real cubre ese tramo y con qué duración? (no inventar)`,
@@ -128,6 +130,6 @@ export function validateDayCoverage(
     questions.push(`Hay superposición de rangos entre actividades; ajusta horarios reales.`);
   }
 
-  const ok = gaps.length === 0 && overlaps.length === 0 && questions.length === 0;
+  const ok = (opts.allowGaps || gaps.length === 0) && overlaps.length === 0 && questions.length === 0;
   return { requiredMinutes: required, coveredMinutes: covered, gaps, overlaps, ok, questions };
 }
