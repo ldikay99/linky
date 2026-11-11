@@ -159,7 +159,7 @@ export type LinkyProfile = {
     sendEndOfDay: boolean;
     schedulingEnabled: false;
   };
-  secretBackend?: "keyring" | "env" | "session";
+  secretBackend?: "keyring" | "env" | "session" | "vault";
   patLifecycle?: PatLifecycleProfile;
 };
 
