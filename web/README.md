@@ -29,6 +29,16 @@ Toda escritura (Azure, Ripor, Google Chat) pasa por preview y una tarjeta de **A
 no puede aprobar: la herramienta de aplicar no se ejecuta sola y el servidor exige que el snapshot coincida con
 el preview que la persona vio.
 
+## Contexto y memoria
+
+- **Conversación:** el historial completo se guarda cifrado. Al modelo se envía lo reciente dentro de un presupuesto;
+  lo anterior viaja como un resumen que se actualiza solo. Nada se pierde.
+- **Memoria de la persona (entre chats):** el asistente guarda lo estable sobre cómo trabaja (etiquetas, a quién
+  mencionar, formatos) y lo sigue en cada conversación. La persona la ve, agrega y borra en *Memoria*.
+- **Conversaciones anteriores:** cada turno se indexa en fragmentos para que el asistente encuentre "lo que hicimos
+  con PQRD". Búsqueda por significado si hay embeddings; si no, por palabras (sin enviar nada a terceros).
+- Texto y vectores van cifrados; la memoria rechaza cualquier cosa que parezca una clave o un token.
+
 ## Usarla en tu equipo
 
 ```bash
@@ -62,6 +72,8 @@ con la integración directa de Google Cloud. Azure (token) funciona completo.
 | `LINKY_AI_MODEL` | según proveedor | Modelo exacto. |
 | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `MISTRAL_API_KEY`, `DEEPSEEK_API_KEY` | | Clave del proveedor elegido. |
 | `GOOGLE_VERTEX_PROJECT`, `GOOGLE_VERTEX_LOCATION` | | Vertex AI (credenciales por ADC de GCP). |
+| `LINKY_AI_CONTEXT_CHARS` | `140000` | Presupuesto de contexto por turno; lo más antiguo se resume (el historial completo se conserva). |
+| `LINKY_EMBED_PROVIDER` / `LINKY_EMBED_MODEL` | `auto` | Embeddings de la memoria (`openai`, `google`, `vertex`, `mistral`, `none`). Sin ellos, la búsqueda es por palabras. |
 | `LINKY_STT_PROVIDER` | `browser` | `openai` para transcribir en el servidor; si no, el dictado del navegador. |
 | `LINKY_WEB_TENANCY` | `single` | `multi`: cada usuario con su espacio y bóveda. |
 | `LINKY_WEB_MASTER_KEY` / `_FILE` | llavero | Clave maestra (32 bytes base64). Obligatoria en `multi` y en Docker. |

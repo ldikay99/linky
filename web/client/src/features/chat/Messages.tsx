@@ -1,6 +1,6 @@
-import { memo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import type { ApprovalPart, Attachment, NoticePart, ToolPart, UiMessage } from "../../../../shared/protocol";
-import { api } from "../../api";
+import { cachedUrl, getFile } from "../../fileCache";
 import { Isotype } from "../../ui/brand";
 import { Icon, kindIcon } from "../../ui/icons";
 import { Markdown } from "../../ui/Markdown";
@@ -112,12 +112,35 @@ function Notice({ part, onAction }: { part: NoticePart; onAction: (a: NonNullabl
   );
 }
 
+/** URL local (en memoria) de un adjunto: se descarga una vez y la reusan miniatura y visor. */
+function useFileUrl(id: string, enabled: boolean) {
+  const [url, setUrl] = useState<string | null>(() => (enabled ? cachedUrl(id) : null));
+  useEffect(() => {
+    if (!enabled || url) return;
+    let alive = true;
+    getFile(id)
+      .then((e) => alive && setUrl(e.url))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [id, enabled, url]);
+  return url;
+}
+
+/** Al pasar el puntero se adelanta la descarga (y el visor de PDF), así abrir es inmediato. */
+function warmUp(att: Attachment) {
+  void getFile(att.id).catch(() => undefined);
+  if (att.kind === "pdf") void import("pdfjs-dist").catch(() => undefined);
+}
+
 export function AttachmentTile({ att, onOpen }: { att: Attachment; onOpen: (a: Attachment) => void }) {
   const isImg = att.kind === "image" && /^image\/(png|jpeg|gif|webp|avif|bmp|svg\+xml|x-icon)$/.test(att.mediaType);
+  const url = useFileUrl(att.id, isImg);
   return (
-    <button type="button" className={`att ${isImg ? "att--image" : ""}`} onClick={() => onOpen(att)} title={att.name}>
+    <button type="button" className={`att ${isImg ? "att--image" : ""}`} onClick={() => onOpen(att)} onPointerEnter={() => warmUp(att)} onFocus={() => warmUp(att)} title={att.name}>
       {isImg ? (
-        <img src={api.fileUrl(att.id)} alt={att.name} loading="lazy" decoding="async" />
+        url ? <img src={url} alt={att.name} decoding="async" /> : <span className="att__loading" aria-hidden="true" />
       ) : (
         <>
           <span className={`att__icon att__icon--${att.kind}`}>

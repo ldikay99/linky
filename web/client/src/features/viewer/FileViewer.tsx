@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { Attachment, FilePreview } from "../../../../shared/protocol";
 import { api } from "../../api";
+import { cachedUrl, getFile } from "../../fileCache";
 import { Icon, kindIcon } from "../../ui/icons";
 import { sanitize } from "../../ui/Markdown";
 import { IconButton, Overlay, Spinner, formatBytes } from "../../ui/primitives";
@@ -40,28 +41,33 @@ function useZoom() {
 }
 
 function ImageView({ att }: { att: Attachment }) {
-  const [src, setSrc] = useState<string | null>(NATIVE_IMG.test(att.mediaType) ? api.fileUrl(att.id) : null);
+  const native = NATIVE_IMG.test(att.mediaType);
+  const [src, setSrc] = useState<string | null>(() => (native ? cachedUrl(att.id) : null));
   const [error, setError] = useState<string | null>(null);
   const z = useZoom();
   useEffect(() => {
-    if (NATIVE_IMG.test(att.mediaType)) return;
-    let url: string | null = null;
+    let decoded: string | null = null;
     let alive = true;
     (async () => {
       try {
-        const buf = await (await fetch(api.fileUrl(att.id), { credentials: "same-origin" })).arrayBuffer();
+        const entry = await getFile(att.id);
+        if (native) {
+          if (alive) setSrc(entry.url);
+          return;
+        }
+        const buf = await entry.blob.arrayBuffer();
         const { decodeHeic, decodeTiff } = await import("./decoders");
-        url = att.mediaType === "image/tiff" ? await decodeTiff(buf) : await decodeHeic(buf);
-        if (alive) setSrc(url);
+        decoded = att.mediaType === "image/tiff" ? await decodeTiff(buf) : await decodeHeic(buf);
+        if (alive) setSrc(decoded);
       } catch (e) {
         if (alive) setError((e as Error).message);
       }
     })();
     return () => {
       alive = false;
-      if (url) URL.revokeObjectURL(url);
+      if (decoded) URL.revokeObjectURL(decoded);
     };
-  }, [att]);
+  }, [att, native]);
   return (
     <div className="v-image">
       <div className="v-image__stage" onWheel={z.onWheel} onPointerDown={z.onDown} onPointerMove={z.onMove} onPointerUp={z.onUp} onDoubleClick={z.reset}>
@@ -139,7 +145,8 @@ function PdfView({ att }: { att: Attachment }) {
         const pdfjs = await import("pdfjs-dist");
         const worker = (await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default;
         pdfjs.GlobalWorkerOptions.workerSrc = worker;
-        const data = new Uint8Array(await (await fetch(api.fileUrl(att.id), { credentials: "same-origin" })).arrayBuffer());
+        // Copia de los bytes: pdf.js transfiere el buffer a su worker y la caché debe seguir intacta.
+        const data = new Uint8Array(await (await getFile(att.id)).blob.arrayBuffer());
         loaded = (await pdfjs.getDocument({ data, enableXfa: false, cMapUrl: "/pdfjs/cmaps/", cMapPacked: true, standardFontDataUrl: "/pdfjs/standard_fonts/", wasmUrl: "/pdfjs/wasm/" }).promise) as unknown as PdfDoc;
         if (alive) setDoc(loaded);
       } catch (e) {
@@ -258,7 +265,11 @@ function PreviewView({ att }: { att: Attachment }) {
 }
 
 export function FileViewer({ items, index, onClose, onIndex }: { items: Attachment[]; index: number; onClose: () => void; onIndex: (i: number) => void }) {
-  const att = items[index];
+  const current = items[index];
+  // Al cerrar se conserva el último archivo mientras dura la animación de salida (sin parpadeo de panel vacío).
+  const last = useRef<{ att: Attachment; count: number } | null>(null);
+  if (current) last.current = { att: current, count: items.length };
+  const att = current ?? last.current?.att;
   const go = useCallback((d: number) => items.length > 1 && onIndex((index + d + items.length) % items.length), [index, items.length, onIndex]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -269,7 +280,7 @@ export function FileViewer({ items, index, onClose, onIndex }: { items: Attachme
     return () => window.removeEventListener("keydown", onKey);
   }, [go]);
   return (
-    <Overlay open={!!att} onClose={onClose} kind="viewer" label="Visor de archivos">
+    <Overlay open={!!current} onClose={onClose} kind="viewer" label="Visor de archivos">
       {att && (
         <div className="viewer">
           <header className="viewer__head">

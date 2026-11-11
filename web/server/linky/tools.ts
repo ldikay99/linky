@@ -9,6 +9,7 @@ import { randomUUID } from "node:crypto";
 import { jsonSchema, tool, type ToolSet } from "ai";
 import { TOOLS, jsonSchema as linkySchema, type ToolDef } from "../../../agent/lib/mcp/tools.js";
 import type { Files } from "../files/files.js";
+import type { Memory } from "../memory/memory.js";
 import type { StoredHistory, UserRow } from "../store/db.js";
 import { cli, serializedFor, withTempJson, type Workspace } from "./workspace.js";
 
@@ -49,6 +50,8 @@ export const LABELS: Record<string, string> = {
   chat_draft: "Redactando mensaje",
   chat_send: "Enviando a Google Chat",
   attachment_path: "Preparando evidencia adjunta",
+  memoria_guardar: "Guardando en la memoria",
+  memoria_buscar: "Buscando en la memoria",
 };
 
 /** Escrituras que esperan aprobación y el preview que la persona debe haber visto. */
@@ -69,6 +72,7 @@ export type ToolContext = {
   conversationId: string;
   ws: Workspace;
   files: Files;
+  memory: Memory;
   history: StoredHistory;
   signal?: AbortSignal;
 };
@@ -111,6 +115,19 @@ export async function runTool(name: string, input: Record<string, unknown>, ctx:
       return { ok: r.ok, text: r.text };
     });
     if (out.ok) ctx.history.dayPreviewFile = outFile;
+  } else if (name === "memoria_guardar") {
+    const r = await ctx.memory.remember(ctx.user.id, String(input.texto ?? ""));
+    out = r.ok
+      ? { ok: true, text: r.duplicate ? "Ya lo tenía guardado." : "Guardado en la memoria de la persona." }
+      : { ok: false, text: r.reason === "secreto" ? "No se guardó: parece un secreto (token, clave)." : "No se guardó: texto vacío." };
+  } else if (name === "memoria_buscar") {
+    const hits = await ctx.memory.search(ctx.user.id, String(input.consulta ?? ""), { k: 8, excludeConversation: ctx.conversationId });
+    out = {
+      ok: true,
+      text: hits.length
+        ? hits.map((h) => `- [${h.kind === "fact" ? "recuerdo" : "conversación anterior"} · ${new Date(h.createdAt).toISOString().slice(0, 10)}] ${h.text}`).join("\n")
+        : "Sin resultados en la memoria.",
+    };
   } else if (name === "attachment_path") {
     const f = await ctx.files.read(ctx.user.id, String(input.id ?? ""));
     if (!f) return { ok: false, text: "Adjunto no encontrado." };
@@ -199,6 +216,18 @@ const WEB_TOOLS: Array<{ name: string; description: string; schema: Record<strin
     name: "azure_delete_confirm",
     description: "Envía a la papelera el work item mostrado con azure_delete. La interfaz pide la aprobación a la persona.",
     schema: { type: "object", properties: { id: { type: "string", description: "ID del work item." } }, required: ["id"], additionalProperties: false },
+  },
+  {
+    name: "memoria_guardar",
+    description:
+      "Guarda algo estable sobre cómo trabajar para esta persona (preferencia, etiqueta, a quién mencionar, corrección que te hizo). " +
+      "Una frase clara. Nunca secretos ni datos que ya viven en Azure o Ripor.",
+    schema: { type: "object", properties: { texto: { type: "string", description: "Lo que hay que recordar (máx. 1000 caracteres)." } }, required: ["texto"], additionalProperties: false },
+  },
+  {
+    name: "memoria_buscar",
+    description: "Busca en los recuerdos de la persona y en sus conversaciones anteriores (p. ej. 'lo que hicimos con PQRD', 'qué etiqueta uso').",
+    schema: { type: "object", properties: { consulta: { type: "string", description: "Qué buscar." } }, required: ["consulta"], additionalProperties: false },
   },
   {
     name: "attachment_path",

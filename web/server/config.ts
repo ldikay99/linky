@@ -35,6 +35,11 @@ const Env = z.object({
   LINKY_AI_PROVIDER: Provider.default("none"),
   LINKY_AI_MODEL: z.string().optional(),
   LINKY_AI_MAX_STEPS: z.coerce.number().int().min(1).max(40).default(16),
+  /** Presupuesto de contexto (caracteres) que se envía al modelo; lo más antiguo se resume. ~3,5 caracteres por token. */
+  LINKY_AI_CONTEXT_CHARS: z.coerce.number().int().min(20_000).max(2_000_000).default(140_000),
+  /** Embeddings para la memoria: auto (el del proveedor si lo tiene), none (búsqueda por palabras) o uno explícito. */
+  LINKY_EMBED_PROVIDER: z.enum(["auto", "none", "openai", "google", "vertex", "mistral"]).default("auto"),
+  LINKY_EMBED_MODEL: z.string().optional(),
   LINKY_STT_PROVIDER: z.enum(["browser", "openai"]).default("browser"),
   LINKY_STT_MODEL: z.string().optional(),
 });
@@ -73,7 +78,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
     openBrowser: e.LINKY_WEB_OPEN_BROWSER === "1" && loopback,
     maxUploadBytes: Math.round(e.LINKY_WEB_MAX_UPLOAD_MB * 1024 * 1024),
     sessionMs: e.LINKY_WEB_SESSION_HOURS * 3600_000,
-    ai: { provider: e.LINKY_AI_PROVIDER, model: e.LINKY_AI_MODEL, maxSteps: e.LINKY_AI_MAX_STEPS },
+    ai: { provider: e.LINKY_AI_PROVIDER, model: e.LINKY_AI_MODEL, maxSteps: e.LINKY_AI_MAX_STEPS, contextChars: e.LINKY_AI_CONTEXT_CHARS },
+    embed: { provider: e.LINKY_EMBED_PROVIDER, model: e.LINKY_EMBED_MODEL },
     stt: { provider: e.LINKY_STT_PROVIDER, model: e.LINKY_STT_MODEL },
   };
 }

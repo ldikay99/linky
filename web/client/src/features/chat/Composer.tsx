@@ -2,20 +2,33 @@ import { useCallback, useEffect, useImperativeHandle, useRef, useState, type Ref
 import { MSG } from "../../../../shared/messages";
 import type { Attachment } from "../../../../shared/protocol";
 import { ACCEPTED_EXT, LIMITS, extOf } from "../../../../shared/schemas";
-import { uploadFile } from "../../api";
+import { ApiError, uploadFile } from "../../api";
+import { seedFile } from "../../fileCache";
 import { Tooltip } from "../../ui/floating";
 import { Icon, kindIcon } from "../../ui/icons";
 import { IconButton, Spinner, formatBytes, useToast } from "../../ui/primitives";
+import { optimizeImage } from "./optimize";
 import { useVoice } from "./useVoice";
 
 export const ACCEPT = ACCEPTED_EXT.map((e) => `.${e}`).join(",");
 const ACCEPTED = new Set<string>(ACCEPTED_EXT);
 
-type Pending = { key: string; file: File; progress: number; status: "uploading" | "done" | "error"; att?: Attachment; error?: string; thumb?: string; ctrl: AbortController };
+type Pending = {
+  key: string;
+  file: File;
+  progress: number;
+  status: "preparing" | "uploading" | "done" | "error";
+  optimized?: boolean;
+  att?: Attachment;
+  error?: string;
+  thumb?: string;
+  ctrl: AbortController;
+};
 
 export type ComposerHandle = { addFiles: (files: File[]) => void; setText: (t: string) => void; focus: () => void };
 
 const join = (a: string, b: string) => (a && b ? `${a.replace(/\s+$/, "")} ${b}` : a || b);
+const fmt = (n: number) => n.toLocaleString("es-CO");
 
 export function Composer({ ref, busy, onSend, onStop, stt, maxUploadMb, onOpen, placeholder }: { ref?: Ref<ComposerHandle>; busy: boolean; onSend: (text: string, atts: Attachment[]) => void; onStop: () => void; stt: "server" | "browser"; maxUploadMb: number; onOpen: (a: Attachment) => void; placeholder: string }) {
   const [text, setText] = useState("");
@@ -49,51 +62,81 @@ export function Composer({ ref, busy, onSend, onStop, stt, maxUploadMb, onOpen, 
     el.style.height = `${Math.min(el.scrollHeight, window.innerHeight * 0.4)}px`;
   }, [text]);
 
+  const patch = (key: string, p: Partial<Pending>) => setPending((list) => list.map((x) => (x.key === key ? { ...x, ...p } : x)));
+
+  /** Optimiza (si es imagen grande) y sube; si se detiene o se cae la red, reintenta una vez sola. */
+  const upload = useCallback(
+    async (key: string, original: File, ctrl: AbortController) => {
+      patch(key, { status: "preparing", progress: 0, error: undefined });
+      const { file, optimized } = await optimizeImage(original).catch(() => ({ file: original, optimized: false }));
+      if (ctrl.signal.aborted) return;
+      if (file.size > maxUploadMb * 1024 * 1024) {
+        patch(key, { status: "error", error: MSG.fileTooBig(maxUploadMb) });
+        return;
+      }
+      patch(key, { status: "uploading", optimized });
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const att = await uploadFile(file, (r) => patch(key, { progress: r }), ctrl.signal);
+          seedFile(att.id, file); // el visor abre al instante, sin volver a descargar
+          patch(key, { status: "done", att, progress: 1 });
+          return;
+        } catch (e) {
+          if (ctrl.signal.aborted) return;
+          const retryable = e instanceof ApiError && e.status === 0;
+          if (retryable && attempt === 0) {
+            patch(key, { progress: 0 });
+            continue;
+          }
+          patch(key, { status: "error", error: (e as Error).message });
+          toast("error", `${original.name}: ${(e as Error).message}`);
+          return;
+        }
+      }
+    },
+    [maxUploadMb, toast],
+  );
+
   const addFiles = useCallback(
     (files: File[]) => {
       const max = maxUploadMb * 1024 * 1024;
       let room = LIMITS.attachments - pendingRef.current.filter((p) => p.status !== "error").length;
       const added: Pending[] = [];
-      {
-        for (const file of files) {
-          if (file.type.startsWith("video/") || file.type.startsWith("audio/")) {
-            toast("error", `${file.name}: ${MSG.fileVideo}`);
-            continue;
-          }
-          if (!ACCEPTED.has(extOf(file.name))) {
-            toast("error", `${file.name}: ${MSG.fileType}`);
-            continue;
-          }
-          if (file.size > max) {
-            toast("error", `${file.name}: ${MSG.fileTooBig(maxUploadMb)}`);
-            continue;
-          }
-          if (room <= 0) {
-            toast("error", MSG.tooManyAttachments);
-            break;
-          }
-          room--;
-          const key = crypto.randomUUID();
-          const ctrl = new AbortController();
-          const thumb = /^image\/(png|jpe?g|gif|webp|avif|bmp|svg\+xml)$/.test(file.type) ? URL.createObjectURL(file) : undefined;
-          added.push({ key, file, progress: 0, status: "uploading", thumb, ctrl });
+      for (const file of files) {
+        if (file.type.startsWith("video/") || file.type.startsWith("audio/")) {
+          toast("error", `${file.name}: ${MSG.fileVideo}`);
+          continue;
         }
+        if (!ACCEPTED.has(extOf(file.name))) {
+          toast("error", `${file.name}: ${MSG.fileType}`);
+          continue;
+        }
+        // Las imágenes grandes se reducen antes de subir; el resto debe caber tal cual.
+        if (file.size > max && !/^image\/(jpeg|png|webp|bmp|avif)$/.test(file.type)) {
+          toast("error", `${file.name}: ${MSG.fileTooBig(maxUploadMb)}`);
+          continue;
+        }
+        if (room <= 0) {
+          toast("error", MSG.tooManyAttachments);
+          break;
+        }
+        room--;
+        const thumb = /^image\/(png|jpe?g|gif|webp|avif|bmp|svg\+xml)$/.test(file.type) ? URL.createObjectURL(file) : undefined;
+        added.push({ key: crypto.randomUUID(), file, progress: 0, status: "preparing", thumb, ctrl: new AbortController() });
       }
       if (!added.length) return;
       pendingRef.current = [...pendingRef.current, ...added];
       setPending((p) => [...p, ...added]);
-      for (const { key, file, ctrl } of added) {
-        uploadFile(file, (r) => setPending((p) => p.map((x) => (x.key === key ? { ...x, progress: r } : x))), ctrl.signal)
-          .then((att) => setPending((p) => p.map((x) => (x.key === key ? { ...x, status: "done", att, progress: 1 } : x))))
-          .catch((e: Error) => {
-            if (ctrl.signal.aborted) return;
-            setPending((p) => p.map((x) => (x.key === key ? { ...x, status: "error", error: e.message } : x)));
-            toast("error", `${file.name}: ${e.message}`);
-          });
-      }
+      for (const a of added) void upload(a.key, a.file, a.ctrl);
     },
-    [maxUploadMb, toast],
+    [maxUploadMb, toast, upload],
   );
+
+  const retry = (p: Pending) => {
+    const ctrl = new AbortController();
+    patch(p.key, { ctrl });
+    void upload(p.key, p.file, ctrl);
+  };
 
   useImperativeHandle(ref, () => ({ addFiles, setText: (t) => setText(t), focus: () => area.current?.focus() }), [addFiles]);
 
@@ -105,10 +148,11 @@ export function Composer({ ref, busy, onSend, onStop, stt, maxUploadMb, onOpen, 
       return p.filter((i) => i.key !== key);
     });
 
-  const uploading = pending.some((p) => p.status === "uploading");
+  const working = pending.some((p) => p.status === "uploading" || p.status === "preparing");
   const ready = pending.filter((p) => p.status === "done" && p.att).map((p) => p.att!);
   const tooLong = text.length > LIMITS.messageChars;
-  const canSend = !busy && !uploading && !tooLong && (text.trim().length > 0 || ready.length > 0);
+  const canSend = !busy && !working && !tooLong && (text.trim().length > 0 || ready.length > 0);
+  const showCount = text.length >= 1_000;
   const nearLimit = text.length > LIMITS.messageChars * 0.9;
 
   const submit = () => {
@@ -130,6 +174,13 @@ export function Composer({ ref, busy, onSend, onStop, stt, maxUploadMb, onOpen, 
     }
   };
 
+  const status = (p: Pending) => {
+    if (p.status === "error") return p.error ?? MSG.internal;
+    if (p.status === "preparing") return "Preparando…";
+    if (p.status === "uploading") return `Subiendo ${Math.round(p.progress * 100)}%`;
+    return `${formatBytes(p.att?.size ?? p.file.size)}${p.optimized ? " · optimizada" : ""}`;
+  };
+
   return (
     <div className={`composer ${voice.state === "listening" ? "is-listening" : ""}`}>
       {pending.length > 0 && (
@@ -138,7 +189,7 @@ export function Composer({ ref, busy, onSend, onStop, stt, maxUploadMb, onOpen, 
             <div key={p.key} className={`chip chip--${p.status}`}>
               <button type="button" className="chip__body" onClick={() => p.att && onOpen(p.att)} disabled={!p.att} title={p.error ?? p.file.name}>
                 {p.thumb ? (
-                  <img src={p.thumb} alt="" className="chip__thumb" />
+                  <img src={p.thumb} alt="" className="chip__thumb" decoding="async" />
                 ) : (
                   <span className="chip__icon">
                     <Icon name={kindIcon(p.att?.kind ?? "file")} size={18} />
@@ -146,10 +197,15 @@ export function Composer({ ref, busy, onSend, onStop, stt, maxUploadMb, onOpen, 
                 )}
                 <span className="chip__meta">
                   <span className="chip__name">{p.file.name}</span>
-                  <span className="chip__sub">{p.status === "error" ? p.error : p.status === "uploading" ? `Subiendo ${Math.round(p.progress * 100)}%` : formatBytes(p.file.size)}</span>
+                  <span className="chip__sub">{status(p)}</span>
                 </span>
               </button>
-              {p.status === "uploading" && <span className="chip__bar" style={{ transform: `scaleX(${p.progress})` }} />}
+              {(p.status === "uploading" || p.status === "preparing") && <span className={`chip__bar ${p.status === "preparing" ? "is-indeterminate" : ""}`} style={p.status === "uploading" ? { transform: `scaleX(${Math.max(0.02, p.progress)})` } : undefined} />}
+              {p.status === "error" && (
+                <button type="button" className="chip__retry" onClick={() => retry(p)}>
+                  <Icon name="refresh" size={12} /> {MSG.uploadRetry}
+                </button>
+              )}
               <button type="button" className="chip__remove" aria-label={`Quitar ${p.file.name}`} onClick={() => removePending(p.key)}>
                 <Icon name="x" size={13} />
               </button>
@@ -195,6 +251,15 @@ export function Composer({ ref, busy, onSend, onStop, stt, maxUploadMb, onOpen, 
             if (files.length) {
               e.preventDefault();
               addFiles(files);
+              return;
+            }
+            // Texto muy largo (un log, un correo completo): se adjunta como archivo; el modelo lo lee igual.
+            const pasted = e.clipboardData.getData("text/plain");
+            if (pasted.length > LIMITS.pasteAsFileChars) {
+              e.preventDefault();
+              const stamp = new Date().toTimeString().slice(0, 8).replace(/:/g, "");
+              addFiles([new File([pasted], `texto-pegado-${stamp}.txt`, { type: "text/plain" })]);
+              toast("info", MSG.pastedAsFile);
             }
           }}
           aria-label="Mensaje"
@@ -233,15 +298,16 @@ export function Composer({ ref, busy, onSend, onStop, stt, maxUploadMb, onOpen, 
           )}
         </div>
       </div>
-      <p className={`composer__hint ${nearLimit ? "is-warn" : ""}`}>
-        {nearLimit ? (
-          `${text.length.toLocaleString("es-CO")} / ${LIMITS.messageChars.toLocaleString("es-CO")} caracteres`
-        ) : (
-          <>
-            <kbd>Enter</kbd> envía · <kbd>Shift</kbd> + <kbd>Enter</kbd> nueva línea · Toda escritura en Azure, Ripor o Chat pide tu aprobación.
-          </>
+      <div className="composer__foot">
+        <p className="composer__hint">
+          <kbd>Enter</kbd> envía · <kbd>Shift</kbd> + <kbd>Enter</kbd> nueva línea · Toda escritura en Azure, Ripor o Chat pide tu aprobación.
+        </p>
+        {showCount && (
+          <span className={`composer__count ${nearLimit ? "is-warn" : ""} ${tooLong ? "is-over" : ""}`} aria-live="polite">
+            {fmt(text.length)} / {fmt(LIMITS.messageChars)}
+          </span>
         )}
-      </p>
+      </div>
     </div>
   );
 }

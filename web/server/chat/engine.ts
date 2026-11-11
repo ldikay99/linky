@@ -3,7 +3,7 @@
  * transmite texto y herramientas por SSE y, si el modelo pide una escritura, deja la aprobación pendiente.
  */
 import { randomUUID } from "node:crypto";
-import { stepCountIs, streamText, type ModelMessage, type UserContent } from "ai";
+import { generateText, stepCountIs, streamText, type ModelMessage, type UserContent } from "ai";
 import { MSG } from "../../shared/messages.js";
 import type { ApprovalPart, Attachment, StreamEvent, ToolPart, UiMessage, UiPart } from "../../shared/protocol.js";
 import { nativeFile, type Ai } from "../ai/providers.js";
@@ -12,12 +12,13 @@ import type { Config } from "../config.js";
 import type { Files } from "../files/files.js";
 import { APPROVALS, LABELS, approvalPreview, buildToolSet, runApproved, runTool, type ToolContext } from "../linky/tools.js";
 import type { createWorkspaces } from "../linky/workspace.js";
+import type { Memory } from "../memory/memory.js";
 import type { StoredHistory, Store, UserRow } from "../store/db.js";
 import { planLocal, summarizeLocal, todayIn } from "./local.js";
 
 export type Emit = (e: StreamEvent) => void;
 
-export type Deps = { config: Config; ai: Ai; store: Store; files: Files; workspaces: ReturnType<typeof createWorkspaces> };
+export type Deps = { config: Config; ai: Ai; store: Store; files: Files; workspaces: ReturnType<typeof createWorkspaces>; memory: Memory };
 
 type StoredUserPart = { type: "text"; text: string } | { type: "attachment"; id: string; name: string; mediaType: string };
 
@@ -53,7 +54,8 @@ export function summaryLines(text?: string): string[] {
 
 /** Convierte el historial guardado en mensajes del modelo; solo los últimos turnos llevan los bytes de adjuntos. */
 async function hydrate(history: StoredHistory, deps: Deps, user: UserRow): Promise<ModelMessage[]> {
-  const msgs = history.messages as Array<{ role: string; content: unknown }>;
+  // Solo lo posterior al resumen: lo anterior viaja resumido en las instrucciones del sistema.
+  const msgs = (history.messages as Array<{ role: string; content: unknown }>).slice(history.summarizedUpTo ?? 0);
   const userIdx = msgs.map((m, i) => (m.role === "user" ? i : -1)).filter((i) => i >= 0);
   const recent = new Set(userIdx.slice(-HYDRATE_LAST_USER_TURNS));
   const out: ModelMessage[] = [];
@@ -101,7 +103,7 @@ export async function runTurn(deps: Deps, user: UserRow, conversationId: string,
     const conv = deps.store.conversation(user.id, conversationId);
     if (!conv) throw Object.assign(new Error(MSG.conversationNotFound), { statusCode: 404, expose: true });
     const { transcript, history } = conv;
-    const ctx: ToolContext = { user, conversationId, ws: deps.workspaces.forUser(user), files: deps.files, history, signal };
+    const ctx: ToolContext = { user, conversationId, ws: deps.workspaces.forUser(user), files: deps.files, memory: deps.memory, history, signal };
     const save = () => deps.store.saveConversation(user.id, conversationId, { transcript, history });
 
     if (input.kind === "message") {
@@ -157,6 +159,11 @@ export async function runTurn(deps: Deps, user: UserRow, conversationId: string,
     if (!parts.length) transcript.pop();
     save();
     emit({ type: "done" });
+    // Se indexa el turno en segundo plano para poder encontrarlo después (memoria entre chats).
+    const said = parts.filter((p) => p.type === "text").map((p) => (p as { text: string }).text).join("\n");
+    const asked = input.kind === "message" ? input.text : "";
+    // (sin modelo, las respuestas son ayudas fijas: no aportan a la memoria)
+    if (deps.ai.model) void deps.memory.indexTurn(user.id, conversationId, asked, said).catch(() => undefined);
   } finally {
     busy.delete(lock);
   }
@@ -168,11 +175,83 @@ type Sink = {
   patchTool: (id: string, patch: Partial<ToolPart>) => void;
 };
 
+const msgSize = (m: unknown) => JSON.stringify(m).length;
+
+/** Texto plano de mensajes del modelo (para resumir): roles, textos y herramientas usadas, sin bytes de adjuntos. */
+function transcriptOf(messages: unknown[]): string {
+  return (messages as Array<{ role: string; content: unknown }>)
+    .map((m) => {
+      const parts = typeof m.content === "string" ? [{ type: "text", text: m.content }] : ((m.content ?? []) as Array<Record<string, unknown>>);
+      const text = parts
+        .map((p) => {
+          if (p.type === "text") return String(p.text ?? "");
+          if (p.type === "attachment") return `[adjunto ${String(p.name)} id=${String(p.id)}]`;
+          if (p.type === "tool-call") return `[usó ${String(p.toolName)} ${clip(JSON.stringify(p.input ?? {}), 400)}]`;
+          if (p.type === "tool-result") return `[resultado ${String(p.toolName)}: ${clip(JSON.stringify((p.output as { value?: unknown })?.value ?? p.output ?? ""), 1_500)}]`;
+          return "";
+        })
+        .filter(Boolean)
+        .join(" ");
+      return `${m.role === "user" ? "Persona" : m.role === "assistant" ? "Linky" : "Herramienta"}: ${text}`;
+    })
+    .join("\n");
+}
+
+/**
+ * Si lo que se enviaría al modelo supera el presupuesto, resume lo más antiguo (cortando siempre antes de un mensaje
+ * de la persona, para no separar una herramienta de su resultado). El historial completo queda guardado.
+ */
+export async function compactHistory(deps: Deps, history: StoredHistory, signal?: AbortSignal): Promise<boolean> {
+  const budget = deps.config.ai.contextChars;
+  const msgs = history.messages as Array<{ role: string }>;
+  const start = history.summarizedUpTo ?? 0;
+  const total = msgs.slice(start).reduce((n, m) => n + msgSize(m), 0) + (history.summary?.length ?? 0);
+  if (total <= budget) return false;
+  let keep = msgs.length;
+  let acc = 0;
+  for (let i = msgs.length - 1; i > start; i--) {
+    acc += msgSize(msgs[i]);
+    if (acc > budget * 0.5) break;
+    if (msgs[i].role === "user") keep = i;
+  }
+  if (keep >= msgs.length) {
+    // Un solo turno ya es enorme: se conserva desde el último mensaje de la persona.
+    keep = msgs.map((m, i) => (m.role === "user" ? i : -1)).filter((i) => i > start).pop() ?? msgs.length;
+  }
+  if (keep <= start) return false;
+  const older = transcriptOf(msgs.slice(start, keep));
+  let summary = history.summary ?? "";
+  try {
+    const r = await generateText({
+      model: deps.ai.model!,
+      system:
+        "Resumes conversaciones de trabajo para que el asistente siga sin perder contexto. Español, viñetas breves. " +
+        "Conserva: decisiones, datos concretos (IDs de Tasks y HU, fechas, horas, organizaciones, nombres), preferencias de la persona, " +
+        "pendientes y lo que ya se registró. Nunca incluyas tokens ni contraseñas.",
+      prompt: `Resumen anterior:\n${summary || "(ninguno)"}\n\nMensajes nuevos a incorporar:\n${clip(older, budget)}`,
+      abortSignal: signal ?? AbortSignal.timeout(90_000),
+      maxRetries: 1,
+    });
+    summary = r.text.trim().slice(0, 10_000);
+  } catch {
+    // Sin resumen nuevo igual se respeta el presupuesto: queda el resumen anterior y la búsqueda en memoria.
+  }
+  history.summary = summary;
+  history.summarizedUpTo = keep;
+  return true;
+}
+
 async function modelTurn(deps: Deps, user: UserRow, ctx: ToolContext, history: StoredHistory, sink: Sink, signal: AbortSignal) {
   const started = new Map<string, number>();
+  if (await compactHistory(deps, history, signal)) {
+    sink.pushPart({ type: "tool", id: randomUUID(), name: "context", label: "Resumí la parte anterior de esta conversación para seguir con todo el contexto", status: "done" });
+  }
+  const lastUser = [...(history.messages as Array<{ role: string; content: unknown }>)].reverse().find((m) => m.role === "user");
+  const query = transcriptOf(lastUser ? [lastUser] : []).slice(0, 2_000);
+  const facts = await deps.memory.contextFacts(user.id, query).catch(() => []);
   const result = streamText({
     model: deps.ai.model!,
-    system: systemPrompt({ userName: user.name, today: todayIn(TZ), timeZone: TZ }),
+    system: systemPrompt({ userName: user.name, today: todayIn(TZ), timeZone: TZ, facts, summary: history.summary }),
     messages: await hydrate(history, deps, user),
     tools: buildToolSet(ctx),
     stopWhen: stepCountIs(deps.config.ai.maxSteps),
@@ -234,7 +313,7 @@ async function localTurn(deps: Deps, ctx: ToolContext, input: TurnInput, sink: S
     json = null;
   }
   // doctor y otros comandos salen con código 1 cuando hay algo por revisar, pero su JSON es válido.
-  const summary = summarizeLocal(plan.name, json);
+  const summary = summarizeLocal(plan.name, json, r.text);
   sink.patchTool(id, { status: r.ok || summary ? "done" : "error", output: clip(r.text, 20_000), ms: Date.now() - t0 });
   sink.pushText(summary ?? (r.ok ? "Listo. El detalle completo está en la tarjeta de arriba." : "No se pudo completar. Revisa el detalle o abre Conectores."));
   if (!r.ok && summary) sink.pushPart({ type: "notice", tone: "info", text: "Abrir Conectores", action: "open-connectors" });

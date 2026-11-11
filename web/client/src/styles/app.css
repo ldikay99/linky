@@ -676,17 +676,17 @@ kbd {
   inset: 0;
   z-index: 80;
 }
+/* Animación barata para la GPU: solo opacidad y transformación (sin desenfoque de toda la página). */
 .overlay__scrim {
   position: absolute;
   inset: 0;
-  background: rgba(4, 4, 5, 0.66);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(4, 4, 5, 0.74);
   opacity: 0;
-  transition: opacity var(--t-med) var(--ease);
+  transition: opacity 150ms var(--ease);
 }
 .overlay.is-open .overlay__scrim {
   opacity: 1;
+  transition-duration: 200ms;
 }
 .overlay__panel {
   position: absolute;
@@ -695,9 +695,16 @@ kbd {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
   transition:
-    transform var(--t-slow) var(--ease-out),
-    opacity var(--t-med) var(--ease);
+    transform 150ms var(--ease-in-out),
+    opacity 150ms var(--ease);
+}
+.overlay.is-open .overlay__panel {
+  transition:
+    transform 220ms var(--ease-out),
+    opacity 180ms var(--ease);
 }
 .overlay__panel--sheet {
   top: 10px;
@@ -715,7 +722,7 @@ kbd {
   left: 50%;
   top: 50%;
   border-radius: var(--r-xl);
-  transform: translate(-50%, -48%) scale(0.98);
+  transform: translate(-50%, -50%) scale(0.965);
   opacity: 0;
 }
 .overlay__panel--viewer {
@@ -1600,6 +1607,16 @@ kbd {
   object-fit: cover;
   transition: transform var(--t-slow) var(--ease-out);
 }
+.att__loading {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--bg-3) 0%, var(--bg-4) 50%, var(--bg-3) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+.att--image {
+  position: relative;
+}
 .att--image:hover img {
   transform: scale(1.04);
 }
@@ -1969,9 +1986,68 @@ kbd {
   color: var(--text-4);
   text-align: center;
 }
-.composer__hint.is-warn {
-  color: var(--warn);
+.composer__foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 6px;
+}
+.composer__foot .composer__hint {
+  flex: 1;
+  min-width: 0;
+}
+.composer__count {
+  margin-left: auto;
+  padding-top: 6px;
+  font-size: 0.7rem;
+  color: var(--text-4);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transition: color var(--t-fast);
+}
+.composer__count.is-warn {
+  color: var(--warn);
+}
+.composer__count.is-over {
+  color: var(--danger);
+  font-weight: 600;
+}
+.chip__retry {
+  position: absolute;
+  right: 30px;
+  bottom: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 6px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--text-1);
+  background: var(--bg-5);
+  transition: background-color var(--t-fast);
+}
+.chip__retry:hover {
+  background: var(--bg-6);
+}
+.chip--error .chip__body {
+  padding-bottom: 22px;
+}
+.chip__bar.is-indeterminate {
+  transform: none;
+  background: linear-gradient(90deg, transparent, var(--text-1), transparent);
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  animation: indeterminate 1.1s var(--ease-in-out) infinite;
+}
+@keyframes indeterminate {
+  from {
+    background-position: -40% 0;
+  }
+  to {
+    background-position: 140% 0;
+  }
 }
 .composer__hint kbd {
   height: 16px;
@@ -2160,6 +2236,63 @@ kbd {
   flex-wrap: wrap;
   gap: 8px;
   align-items: flex-start;
+}
+.mem-add {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: var(--r-lg);
+  background: var(--bg-3);
+  box-shadow: 0 0 0 1px var(--line-1) inset;
+}
+.mem-add__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.mem-add__row p {
+  flex: 1;
+}
+.mem-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.mem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  padding: 10px 6px 10px 14px;
+  border-radius: var(--r-md);
+  background: var(--bg-3);
+  animation: fade-in var(--t-med) var(--ease);
+}
+.mem__text {
+  font-size: var(--fs-sm);
+  color: var(--text-1);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.mem__date {
+  grid-row: 2;
+  font-size: 0.7rem;
+  color: var(--text-4);
+}
+.mem .icon-btn {
+  grid-row: span 2;
+  align-self: center;
+}
+.mem-foot {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  padding: 6px 4px 0;
+  border-top: 1px solid var(--line-1);
+  padding-top: 14px;
 }
 .orgs {
   list-style: none;

@@ -16,8 +16,15 @@ export type SessionRow = { userId: string; csrf: string; expiresAt: number };
 export type FileRow = { id: string; userId: string; name: string; mediaType: string; kind: string; size: number; sha256: string; createdAt: number };
 export type ApprovalRow = { id: string; userId: string; conversationId: string; toolCallId: string; toolName: string; input: Record<string, unknown>; status: string };
 
-/** Historial del modelo tal como lo guarda Linky: los adjuntos van por id y se hidratan al enviar. */
-export type StoredHistory = { messages: unknown[]; previews: Record<string, string>; dayPreviewFile?: string };
+/**
+ * Historial del modelo tal como lo guarda Linky: los adjuntos van por id y se hidratan al enviar.
+ * `summary` resume lo anterior a `summarizedUpTo` (el historial completo nunca se borra; solo deja de enviarse).
+ */
+export type StoredHistory = { messages: unknown[]; previews: Record<string, string>; dayPreviewFile?: string; summary?: string; summarizedUpTo?: number };
+
+/** fact: lo que Linky debe recordar de la persona (entre chats). chunk: fragmento de una conversación, para buscar. */
+export type MemoryKind = "fact" | "chunk";
+export type MemoryRow = { id: string; kind: MemoryKind; conversationId: string | null; text: string; vector: number[] | null; createdAt: number };
 
 const SCHEMA = `
 PRAGMA journal_mode = WAL;
@@ -45,6 +52,11 @@ CREATE TABLE IF NOT EXISTS approvals (
   conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   tool_call_id TEXT NOT NULL, tool_name TEXT NOT NULL, input BLOB NOT NULL,
   status TEXT NOT NULL, created_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS memories (
+  id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL, conversation_id TEXT REFERENCES conversations(id) ON DELETE CASCADE,
+  text BLOB NOT NULL, vector BLOB, created_at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS memories_user ON memories(user_id, kind, created_at DESC);
 CREATE TABLE IF NOT EXISTS audit (
   id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, action TEXT NOT NULL, detail TEXT, at INTEGER NOT NULL);
 `;
@@ -213,6 +225,43 @@ export function openStore(dataDir: string, keys: KeyRing) {
         sha256: String(r.sha256),
         createdAt: Number(r.created_at),
       };
+    },
+
+    // ---- memoria (texto y vector cifrados: un vector también puede revelar el contenido)
+    addMemory(m: { id: string; userId: string; kind: MemoryKind; conversationId: string | null; text: string; vector: number[] | null }) {
+      db.prepare("INSERT INTO memories (id, user_id, kind, conversation_id, text, vector, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+        m.id,
+        m.userId,
+        m.kind,
+        m.conversationId,
+        keys.seal(m.userId, "data", `mem:${m.id}`, m.text),
+        m.vector ? keys.sealJson(m.userId, `mem-vec:${m.id}`, m.vector) : null,
+        now(),
+      );
+    },
+    memories(userId: string, kind?: MemoryKind, limit = 5000): MemoryRow[] {
+      const rows = (
+        kind
+          ? db.prepare("SELECT * FROM memories WHERE user_id = ? AND kind = ? ORDER BY created_at DESC LIMIT ?").all(userId, kind, limit)
+          : db.prepare("SELECT * FROM memories WHERE user_id = ? ORDER BY created_at DESC LIMIT ?").all(userId, limit)
+      ) as Row[];
+      return rows.map((r) => ({
+        id: String(r.id),
+        kind: r.kind as MemoryKind,
+        conversationId: r.conversation_id ? String(r.conversation_id) : null,
+        text: keys.open(userId, "data", `mem:${r.id}`, buf(r.text)).toString("utf8"),
+        vector: r.vector ? keys.openJson<number[]>(userId, `mem-vec:${r.id}`, buf(r.vector)) : null,
+        createdAt: Number(r.created_at),
+      }));
+    },
+    countMemories(userId: string, kind: MemoryKind): number {
+      return Number((db.prepare("SELECT COUNT(*) AS n FROM memories WHERE user_id = ? AND kind = ?").get(userId, kind) as Row).n);
+    },
+    deleteMemory(userId: string, id: string): boolean {
+      return Number(db.prepare("DELETE FROM memories WHERE id = ? AND user_id = ? AND kind = 'fact'").run(id, userId).changes) === 1;
+    },
+    deleteMemories(userId: string, kind: MemoryKind): number {
+      return Number(db.prepare("DELETE FROM memories WHERE user_id = ? AND kind = ?").run(userId, kind).changes);
     },
 
     // ---- aprobaciones (escrituras que esperan el sí de la persona)

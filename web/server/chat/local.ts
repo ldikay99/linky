@@ -33,6 +33,7 @@ const HELP = [
   "- **Tu día**: *mi día*, *mi día de ayer* o *día 2026-11-10*.",
   "- **Avisos**: *avisos*.",
   "- **Ripor del mes**: *ripor mes*.",
+  "- **Memoria**: *recuerda que …* o *busca …*.",
   "- **Reuniones**: *reuniones de hoy*.",
   "- **Conectar cuentas**: abre *Conectores* en la barra lateral.",
 ].join("\n");
@@ -40,6 +41,10 @@ const HELP = [
 export function planLocal(text: string, timeZone: string): LocalPlan {
   const t = text.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   const date = dateFrom(text, timeZone);
+  const remember = /^\s*(recuerda|recuerde|recordar|anota|guarda)\s+(que\s+)?(.{3,})$/i.exec(text.trim());
+  if (remember) return { kind: "tool", name: "memoria_guardar", input: { texto: remember[3] }, intro: "Lo guardo en tu memoria." };
+  const find = /^\s*(busca|buscar|encuentra)\s+(en\s+(la\s+)?memoria\s+)?(.{3,})$/i.exec(text.trim());
+  if (find) return { kind: "tool", name: "memoria_buscar", input: { consulta: find[4] }, intro: "Busco en tu memoria y conversaciones anteriores." };
   if (/\b(conector|conectar|vincular|token|pat)\b/.test(t)) {
     return { kind: "text", text: "Las cuentas se conectan desde el panel **Conectores**: ahí ingresas tu token de Azure de forma segura e inicias sesión en Google y Ripor.", action: "open-connectors" };
   }
@@ -58,7 +63,8 @@ export function planLocal(text: string, timeZone: string): LocalPlan {
 type Check = { area?: string; ok?: boolean; detail?: string; fix?: string };
 
 /** Resumen legible de las salidas más comunes (el detalle completo queda en la tarjeta de la herramienta). */
-export function summarizeLocal(name: string, json: unknown): string | null {
+export function summarizeLocal(name: string, json: unknown, raw = ""): string | null {
+  if (name === "memoria_guardar" || name === "memoria_buscar") return raw || null;
   if (!json || typeof json !== "object") return null;
   const j = json as Record<string, unknown>;
   if (name === "linky_doctor" && Array.isArray(j.checks)) {
