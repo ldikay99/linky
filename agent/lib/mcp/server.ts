@@ -32,17 +32,29 @@ function killTree(child: ChildProcess): void {
   }
 }
 
+/** Termina todos los procesos hijos del CLI (lo usa la web al apagarse). */
+export function killAllChildren(): void {
+  for (const c of children) killTree(c);
+}
+
 function shutdown(code = 0): never {
   for (const c of children) killTree(c);
   process.exit(code);
 }
 
-/** Ejecuta el CLI y devuelve stdout/stderr. Mata el árbol si excede el tiempo. */
-export function runCli(args: string[], timeoutMs = DEFAULT_TIMEOUT): Promise<{ code: number | null; stdout: string; stderr: string; timedOut: boolean }> {
+/**
+ * Ejecuta el CLI y devuelve stdout/stderr. Mata el árbol si excede el tiempo o si se aborta.
+ * `env` agrega variables al proceso hijo (p. ej. el directorio de datos de cada persona en la web).
+ */
+export function runCli(
+  args: string[],
+  timeoutMs = DEFAULT_TIMEOUT,
+  opts: { env?: Record<string, string>; signal?: AbortSignal } = {},
+): Promise<{ code: number | null; stdout: string; stderr: string; timedOut: boolean }> {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [TSX_CLI, MAIN, ...args], {
       cwd: ROOT,
-      env: { ...process.env, NO_COLOR: "1" },
+      env: { ...process.env, ...opts.env, NO_COLOR: "1" },
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
       detached: process.platform !== "win32",
@@ -57,8 +69,11 @@ export function runCli(args: string[], timeoutMs = DEFAULT_TIMEOUT): Promise<{ c
       timedOut = true;
       killTree(child);
     }, timeoutMs);
+    const onAbort = () => killTree(child);
+    opts.signal?.addEventListener("abort", onAbort, { once: true });
     child.on("close", (code) => {
       clearTimeout(timer);
+      opts.signal?.removeEventListener("abort", onAbort);
       children.delete(child);
       resolve({ code, stdout, stderr, timedOut });
     });

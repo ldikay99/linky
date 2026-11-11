@@ -26,5 +26,9 @@ browser-profiles/
 private-ripor/
 **/private-ripor/
 
+# Web: clave maestra de Docker y recursos copiados de pdf.js en cada build
+.secrets/
+web/client/public/pdfjs/
+
 # Ajustes locales del asistente (aprobaciones por persona; no se suben)
 .claude/settings.local.json

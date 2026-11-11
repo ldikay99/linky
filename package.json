@@ -21,14 +21,22 @@
     "scan": "tsx scripts/scan-secrets.ts",
     "prepare": "node -e \"try{require('child_process').execSync('git config core.hooksPath .githooks',{stdio:'ignore'})}catch{}\"",
     "contribute": "tsx scripts/contribute.ts",
-    "mcp": "tsx agent/lib/mcp/server.ts"
+    "mcp": "tsx agent/lib/mcp/server.ts",
+    "web:install": "npm ci --prefix web",
+    "web": "npm --prefix web run build && npm --prefix web start",
+    "web:dev": "npm --prefix web run dev",
+    "web:link": "npm --prefix web run link",
+    "web:test": "npm --prefix web test",
+    "docker:init": "node web/scripts/docker-init.mjs",
+    "docker:up": "node web/scripts/docker-init.mjs && docker compose up -d --build",
+    "docker:link": "docker compose exec linky-web npm --prefix web run link"
   },
   "dependencies": {
     "@napi-rs/keyring": "^2.1.2",
-    "@vercel/connect": "2.7.0",
+    "@vercel/connect": "2.8.0",
     "ai": "^7.0.137",
     "eve": "^1.0.0-rc.5",
-    "zod": "4.5.4"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

@@ -75,6 +75,12 @@ créditos a Jonathan Contreras).
   "es la fecha en que el token deja de servir; te aviso antes para que crees otro".
 - Nunca copiar tokens, cookies ni datos personales a fixtures, git, zip, logs o al repo.
 
+## Interfaz web
+
+`web/` es la misma Linky con interfaz de chat (Fastify + React, ver `web/README.md`). Usa estas mismas reglas y
+herramientas; las escrituras se aprueban con botones y el proveedor de IA se fija por variables de entorno.
+Cambios en `agent/` deben mantener funcionando el CLI, el MCP y la web (`npm test` y `npm run web:test`).
+
 ## Contribuir
 
 Si un ajuste sirve a todos (bug o ampliación, no configuración personal), hazlo con tests y, con aprobación de la

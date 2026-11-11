@@ -1,0 +1,51 @@
+# Linky en Docker. Primera vez: `npm run docker:init` (crea la clave maestra fuera del repo) y luego
+# `docker compose up -d --build`. El enlace de entrada sale en `docker compose logs linky-web`
+# o con `docker compose exec linky-web npm --prefix web run link`.
+name: linky
+
+services:
+  linky-web:
+    build: .
+    image: linky-web:local
+    restart: unless-stopped
+    # Solo en el loopback del anfitrión: para exponerlo a otras personas va detrás de un proxy TLS
+    # (LINKY_WEB_PUBLIC_URL=https://…) y sin LINKY_WEB_ALLOW_HTTP.
+    ports:
+      - "127.0.0.1:${LINKY_WEB_PORT:-4780}:4780"
+    environment:
+      LINKY_WEB_PUBLIC_URL: "http://localhost:${LINKY_WEB_PORT:-4780}"
+      LINKY_WEB_MASTER_KEY_FILE: /run/secrets/linky_master_key
+      # Proveedor de IA (none | openai | anthropic | google | vertex | mistral | deepseek) y su clave.
+      LINKY_AI_PROVIDER: ${LINKY_AI_PROVIDER:-none}
+      LINKY_AI_MODEL: ${LINKY_AI_MODEL:-}
+      LINKY_STT_PROVIDER: ${LINKY_STT_PROVIDER:-browser}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY:-}
+      GOOGLE_VERTEX_PROJECT: ${GOOGLE_VERTEX_PROJECT:-}
+      GOOGLE_VERTEX_LOCATION: ${GOOGLE_VERTEX_LOCATION:-}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+    secrets:
+      - linky_master_key
+    volumes:
+      - linky-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+      - /home/node:size=64m,uid=1000,gid=1000
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 1g
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  linky-data:
+
+secrets:
+  linky_master_key:
+    file: ${LINKY_SECRETS_DIR:-./.secrets}/master.key

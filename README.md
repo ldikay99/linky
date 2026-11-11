@@ -149,6 +149,12 @@ rama `contrib/<tu-usuario>/<tema>` y abre un PR. El mantenedor lo revisa antes d
 - `npm install` activa un **pre-commit** que bloquea commits con PATs, cookies de sesión o tokens (`npm run scan`).
 - Si alguna vez pegas un token en un chat, revócalo y crea otro.
 
+## Interfaz web
+
+Linky también tiene una interfaz web tipo chat: conectores cifrados, evidencias con visor (imágenes, PDF, Word,
+Excel), dictado por voz y aprobación con un clic. `npm run web:install && npm run web`, o en Docker con
+`npm run docker:up`. Detalles en [web/README.md](web/README.md).
+
 ## Documentación
 
 [Referencia Ripor](docs/REFERENCIA-RIPOR.md) · [Referencia Azure](docs/REFERENCIA-AZURE.md) · [Permisos del PAT](docs/PERMISOS-PAT.md) · [Recordatorio de vencimiento](docs/RECORDATORIO-PAT.md) · [Modo navegador guiado](docs/BROWSER-MCP.md)

@@ -3,7 +3,11 @@
  * Preferido: keyring OS (@napi-rs/keyring).
  * Alternativa explícita: env LINKY_AZURE_PAT o sesión en memoria.
  */
-export type SecretBackend = "keyring" | "env" | "session";
+import path from "node:path";
+import { secretsDir } from "./paths.js";
+import { createVaultSecretStore, parseVaultKey } from "./vaultStore.js";
+
+export type SecretBackend = "keyring" | "env" | "session" | "vault";
 
 export type SecretStore = {
   backend: SecretBackend;
@@ -48,17 +52,26 @@ export function createEnvSecretStore(envName = "LINKY_AZURE_PAT"): SecretStore {
   };
 }
 
+/**
+ * Almacén persistente por defecto. Con LINKY_VAULT_KEY (servidores sin llavero, p. ej. la web multiusuario)
+ * usa la bóveda cifrada del directorio de datos; si no, el llavero del sistema. LINKY_SECRET_NAMESPACE
+ * separa los secretos de cada persona cuando varias comparten el mismo llavero.
+ */
 export async function createKeyringSecretStore(): Promise<SecretStore> {
+  const vaultKey = parseVaultKey(process.env.LINKY_VAULT_KEY);
+  if (vaultKey) return createVaultSecretStore(vaultKey, path.join(secretsDir(), "vault.json"));
   const { Entry } = await import("@napi-rs/keyring");
+  const ns = process.env.LINKY_SECRET_NAMESPACE?.trim();
+  const svc = (service: string) => (ns ? `${ns}/${service}` : service);
   return {
     backend: "keyring",
     async set(service, account, secret) {
-      const entry = new Entry(service, account);
+      const entry = new Entry(svc(service), account);
       entry.setPassword(secret);
     },
     async get(service, account) {
       try {
-        const entry = new Entry(service, account);
+        const entry = new Entry(svc(service), account);
         return entry.getPassword();
       } catch {
         return null;
@@ -66,7 +79,7 @@ export async function createKeyringSecretStore(): Promise<SecretStore> {
     },
     async delete(service, account) {
       try {
-        const entry = new Entry(service, account);
+        const entry = new Entry(svc(service), account);
         entry.deletePassword();
       } catch {
         // ignore missing
