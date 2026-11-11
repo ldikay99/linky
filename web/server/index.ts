@@ -91,20 +91,18 @@ async function main() {
   }
 
   // Dueña del equipo (modo single): se crea la primera vez con el usuario del sistema.
-  let owner = store.owner();
-  if (!owner) {
+  if (!store.owner()) {
     // En contenedores el usuario del sistema no es la persona: el nombre real llega al conectar Azure.
     const os = userInfo().username;
-    owner = store.createUser(process.env.LINKY_WEB_OWNER_NAME?.trim() || (["node", "root", "app"].includes(os) ? "" : os), null, "owner");
+    store.createUser(process.env.LINKY_WEB_OWNER_NAME?.trim() || (["node", "root", "app"].includes(os) ? "" : os), null, "owner");
   }
   store.purgeExpired();
   setInterval(() => store.purgeExpired(), 3600_000).unref();
 
   await app.listen({ host: config.host, port: config.port });
-  const link = auth.launchLink(owner);
-  const shown = config.dev ? link.replace(`:${config.port}`, ":5173") : link;
-  process.stdout.write(`\n  Linky web lista en ${config.publicUrl}\n  Abre este enlace para entrar (vale 10 minutos, un solo uso):\n  ${shown}\n\n`);
-  if (config.openBrowser) openInBrowser(shown);
+  const url = config.dev ? config.publicUrl.replace(`:${config.port}`, ":5173") : config.publicUrl;
+  process.stdout.write(`\n  Linky web lista en ${url}\n\n`);
+  if (config.openBrowser) openInBrowser(url);
   if (ai.problem) app.log.warn(ai.problem);
 
   const stop = async () => {

@@ -1,6 +1,5 @@
 # Linky en Docker. Primera vez: `npm run docker:init` (crea la clave maestra fuera del repo) y luego
-# `docker compose up -d --build`. El enlace de entrada sale en `docker compose logs linky-web`
-# o con `docker compose exec linky-web npm --prefix web run link`.
+# `docker compose up -d --build`. Luego se abre http://localhost:4780 y se entra directo.
 name: linky
 
 services:
