@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Connector, ConnectorsResponse } from "../../../../shared/protocol";
-import { api } from "../../api";
+import { Schemas, fieldErrors } from "../../../../shared/schemas";
+import { api, type AzureOrg } from "../../api";
 import { useSession } from "../../state/session";
 import { Icon, type IconName } from "../../ui/icons";
-import { Button, Field, IconButton, Input, Overlay, SecretInput, Spinner, StatusDot, Switch, useToast } from "../../ui/primitives";
+import { Button, Field, IconButton, Input, Overlay, SecretInput, Spinner, StatusDot, Switch, useConfirm, useToast } from "../../ui/primitives";
 
 const ICON: Record<Connector["id"], IconName> = { azure: "boards", google: "account", ripor: "clock", chat: "message", dev: "branch" };
 const STATE_TEXT: Record<Connector["state"], string> = { connected: "Conectado", attention: "Revisar", disconnected: "Sin conectar", optional: "Opcional" };
@@ -32,50 +33,116 @@ export function AzureConnect({ onDone, compact }: { onDone?: () => void; compact
   const [pat, setPat] = useState("");
   const [primary, setPrimary] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [touched, setTouched] = useState<{ org?: boolean; pat?: boolean }>({});
+  const [serverError, setServerError] = useState<string | null>(null);
   const toast = useToast();
-  const orgOk = /^https:\/\/(dev\.azure\.com\/[A-Za-z0-9][A-Za-z0-9._-]{0,63}|[A-Za-z0-9-]+\.visualstudio\.com)\/?$/.test(org.trim());
+  // Mismas reglas que el servidor: si aquí es válido, allá también.
+  const check = Schemas.azureConnect.safeParse({ organizationUrl: org, pat, primary });
+  const errors = check.success ? {} : fieldErrors(check.error);
   return (
     <form
       className={`form ${compact ? "form--compact" : ""}`}
+      noValidate
       onSubmit={async (e) => {
         e.preventDefault();
-        if (!orgOk || pat.trim().length < 20) return;
+        setTouched({ org: true, pat: true });
+        if (!check.success) return;
         setBusy(true);
-        setError(null);
+        setServerError(null);
         try {
-          const r = await api.connectAzure(org.trim(), pat.trim(), primary);
+          const r = await api.connectAzure(check.data.organizationUrl, check.data.pat, check.data.primary);
           setPat("");
+          setTouched({});
           toast("ok", r.user ? `Azure conectado como ${r.user}.` : "Azure conectado.");
           onDone?.();
         } catch (err) {
-          setError((err as Error).message);
+          setServerError((err as Error).message);
         } finally {
           setBusy(false);
         }
       }}
     >
-      <Field label="Organización" hint="La dirección de tu organización en Azure DevOps.">
-        {(id) => <Input id={id} value={org} onChange={(e) => setOrg(e.target.value)} placeholder="https://dev.azure.com/tu-organizacion" inputMode="url" autoComplete="off" spellCheck={false} />}
+      <Field label="Organización" error={touched.org ? errors.organizationUrl : null} hint="La dirección de tu organización en Azure DevOps.">
+        {(id) => <Input id={id} value={org} onChange={(e) => setOrg(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, org: true }))} placeholder="https://dev.azure.com/tu-organizacion" inputMode="url" autoComplete="off" spellCheck={false} aria-invalid={touched.org && !!errors.organizationUrl} />}
       </Field>
       <Field
         label="Token personal (PAT)"
-        error={error}
+        error={(touched.pat ? errors.pat : null) ?? serverError}
         hint={
           <>
             Créalo en Azure: <em>User settings → Personal access tokens</em>, con <strong>Full access</strong> y <strong>90 días</strong>. Se guarda cifrado y no se vuelve a mostrar.
           </>
         }
       >
-        {(id) => <SecretInput id={id} value={pat} onChange={setPat} placeholder="Pega tu token" />}
+        {(id) => <SecretInput id={id} value={pat} onChange={(v) => { setPat(v); setServerError(null); }} onBlur={() => setTouched((t) => ({ ...t, pat: !!pat || t.pat }))} placeholder="Pega tu token" aria-invalid={touched.pat && !!errors.pat} />}
       </Field>
       <Switch checked={primary} onChange={setPrimary} label="Usar como organización principal" />
       <div className="form__actions">
-        <Button type="submit" variant="primary" icon="lock" loading={busy} disabled={!orgOk || pat.trim().length < 20}>
+        <Button type="submit" variant="primary" icon="lock" loading={busy}>
           Conectar de forma segura
         </Button>
       </div>
     </form>
+  );
+}
+
+function AzureOrgs({ onChanged, refreshKey }: { onChanged: () => void; refreshKey: number }) {
+  const [orgs, setOrgs] = useState<AzureOrg[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const confirm = useConfirm();
+  const toast = useToast();
+  const load = useCallback(async () => {
+    try {
+      setOrgs((await api.azureOrgs()).orgs);
+    } catch {
+      setOrgs([]);
+    }
+  }, []);
+  useEffect(() => {
+    void load();
+  }, [load, refreshKey]);
+  if (!orgs?.length) return null;
+  return (
+    <ul className="orgs">
+      {orgs.map((o) => {
+        const name = o.organizationUrl.replace(/^https:\/\/(dev\.azure\.com\/)?/, "").replace(/\.visualstudio\.com\/?$/, "");
+        return (
+          <li key={o.organizationUrl}>
+            <span className="orgs__name">
+              {name}
+              {o.primary && <span className="orgs__tag">Principal</span>}
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              loading={busy === o.organizationUrl}
+              onClick={async () => {
+                const ok = await confirm({
+                  title: `Desconectar ${name}`,
+                  message: "Linky borra el token de esta organización de este equipo y deja de leerla. Puedes conectarla de nuevo cuando quieras.",
+                  confirmLabel: "Desconectar",
+                  tone: "danger",
+                });
+                if (!ok) return;
+                setBusy(o.organizationUrl);
+                try {
+                  await api.disconnectAzure(o.organizationUrl);
+                  toast("ok", `${name} desconectada.`);
+                  await load();
+                  onChanged();
+                } catch (e) {
+                  toast("error", (e as Error).message);
+                } finally {
+                  setBusy(null);
+                }
+              }}
+            >
+              Desconectar
+            </Button>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -111,80 +178,139 @@ export function LoginAction({ which, label, onDone }: { which: "google" | "ripor
       >
         {label}
       </Button>
-      {busy && <p className="login-action__hint">Se abrió una ventana de inicio de sesión en este equipo. Completa el acceso ahí; esta pantalla se actualiza sola.</p>}
+      {busy && <p className="login-action__hint">Se abrió una ventana de inicio de sesión en este equipo. Complétala ahí; esta pantalla se actualiza sola.</p>}
     </div>
   );
 }
 
-type Repo = { name?: string; path?: string; remote?: string };
+function LogoutAction({ which, onDone }: { which: "google" | "ripor"; onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const confirm = useConfirm();
+  const toast = useToast();
+  const name = which === "google" ? "Google" : "Ripor";
+  return (
+    <Button
+      variant="ghost"
+      icon="logout"
+      loading={busy}
+      onClick={async () => {
+        const ok = await confirm({
+          title: `Cerrar sesión de ${name}`,
+          message:
+            which === "google"
+              ? "Linky deja de leer tu Calendar y Gmail, y de entrar a Ripor con tu cuenta. Puedes volver a iniciar sesión cuando quieras."
+              : "Linky deja de registrar en Ripor hasta que vuelvas a iniciar sesión.",
+          confirmLabel: "Cerrar sesión",
+          tone: "danger",
+        });
+        if (!ok) return;
+        setBusy(true);
+        try {
+          await api.logoutConnector(which);
+          toast("ok", `Sesión de ${name} cerrada.`);
+          onDone();
+        } catch (e) {
+          toast("error", (e as Error).message);
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      Cerrar sesión
+    </Button>
+  );
+}
+
+type Repo = string | { name?: string; path?: string };
 
 export function DevRepos({ onChange }: { onChange?: () => void }) {
   const [repos, setRepos] = useState<Repo[] | null>(null);
   const [root, setRoot] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const toast = useToast();
+  const confirm = useConfirm();
   const load = useCallback(async () => {
     const r = await api.devRepos().catch(() => null);
-    const d = r?.data as { repos?: Repo[] } | Repo[] | null;
-    setRepos(Array.isArray(d) ? d : (d?.repos ?? []));
+    const d = r?.data as { repos?: Repo[] } | null;
+    setRepos(d?.repos ?? []);
   }, []);
   useEffect(() => {
     void load();
   }, [load]);
+  const label = (r: Repo) => (typeof r === "string" ? r.split(/[\\/]/).pop() || r : (r.name ?? r.path ?? ""));
+  const value = (r: Repo) => (typeof r === "string" ? r : (r.path ?? r.name ?? ""));
   return (
     <div className="dev">
       <form
         className="dev__scan"
+        noValidate
         onSubmit={async (e) => {
           e.preventDefault();
-          if (!root.trim()) return;
+          const v = Schemas.devScan.safeParse({ root });
+          if (!v.success) return setError(v.error.issues[0].message);
+          setError(null);
           setBusy(true);
           try {
-            await api.devScan(root.trim());
+            await api.devScan(v.data.root);
             toast("ok", "Repositorios registrados.");
             await load();
             onChange?.();
           } catch (err) {
-            toast("error", (err as Error).message);
+            setError((err as Error).message);
           } finally {
             setBusy(false);
           }
         }}
       >
-        <Input value={root} onChange={(e) => setRoot(e.target.value)} placeholder="Carpeta donde tienes tus repositorios" aria-label="Carpeta de repositorios" spellCheck={false} />
-        <Button type="submit" icon="search" loading={busy} disabled={!root.trim()}>
+        <Input value={root} onChange={(e) => setRoot(e.target.value)} placeholder="Carpeta donde tienes tus repositorios" aria-label="Carpeta de repositorios" spellCheck={false} maxLength={500} aria-invalid={!!error} />
+        <Button type="submit" icon="search" loading={busy}>
           Buscar
         </Button>
       </form>
+      {error && <p className="field__error">{error}</p>}
       {repos === null ? (
         <Spinner />
       ) : repos.length ? (
         <ul className="dev__list">
           {repos.map((r) => (
-            <li key={r.path ?? r.name}>
+            <li key={value(r)}>
               <Icon name="branch" size={15} />
-              <span className="dev__name">{r.name ?? r.path}</span>
+              <span className="dev__name" title={value(r)}>
+                {label(r)}
+              </span>
               <IconButton
                 icon="x"
                 size="sm"
                 label="Quitar"
                 onClick={async () => {
-                  await api.devRemove(r.path ?? r.name ?? "").catch((e: Error) => toast("error", e.message));
-                  await load();
-                  onChange?.();
+                  const ok = await confirm({
+                    title: `Quitar ${label(r)}`,
+                    message: "Sus commits dejan de usarse como evidencia. El repositorio no se borra de tu equipo.",
+                    confirmLabel: "Quitar",
+                    tone: "danger",
+                  });
+                  if (!ok) return;
+                  try {
+                    await api.devRemove(value(r));
+                    await load();
+                    onChange?.();
+                  } catch (e) {
+                    toast("error", (e as Error).message);
+                  }
                 }}
               />
             </li>
           ))}
         </ul>
       ) : (
-        <p className="muted">Aún no hay repositorios. Busca en la carpeta donde clonas tus proyectos.</p>
+        <p className="muted small">Aún no hay repositorios. Busca en la carpeta donde clonas tus proyectos.</p>
       )}
     </div>
   );
 }
 
-function ConnectorCard({ c, onChanged, onAsk }: { c: Connector; onChanged: () => void; onAsk: (text: string) => void }) {
+function ConnectorCard({ c, onChanged, onAsk, refreshKey }: { c: Connector; onChanged: () => void; onAsk: (text: string) => void; refreshKey: number }) {
   const [open, setOpen] = useState(c.state !== "connected" && !c.optional);
   return (
     <section className={`conn conn--${c.state} ${open ? "is-open" : ""}`}>
@@ -217,17 +343,28 @@ function ConnectorCard({ c, onChanged, onAsk }: { c: Connector; onChanged: () =>
               <Icon name="info" size={14} /> {c.fix}
             </p>
           )}
-          {c.id === "azure" && <AzureConnect compact onDone={onChanged} />}
-          {c.id === "google" && <LoginAction which="google" label={c.state === "connected" ? "Volver a iniciar sesión" : "Iniciar sesión con Google"} onDone={onChanged} />}
+          {c.id === "azure" && (
+            <>
+              <AzureOrgs onChanged={onChanged} refreshKey={refreshKey} />
+              <AzureConnect compact onDone={onChanged} />
+            </>
+          )}
+          {c.id === "google" && (
+            <div className="conn__row">
+              <LoginAction which="google" label={c.state === "connected" ? "Volver a iniciar sesión" : "Iniciar sesión con Google"} onDone={onChanged} />
+              {c.state === "connected" && <LogoutAction which="google" onDone={onChanged} />}
+            </div>
+          )}
           {c.id === "ripor" && (
             <div className="conn__row">
               <LoginAction which="ripor" label={c.state === "connected" ? "Renovar sesión de Ripor" : "Iniciar sesión en Ripor"} onDone={onChanged} />
+              {c.state !== "disconnected" && <LogoutAction which="ripor" onDone={onChanged} />}
               <Button variant="ghost" icon="chat" onClick={() => onAsk("Ayúdame a configurar Ripor: lee mi catálogo y propón el proyecto de área, la tarea y el transporte.")}>
                 Configurar con el asistente
               </Button>
             </div>
           )}
-          {c.id === "chat" && <LoginAction which="chat" label="Conectar el chat de reporte" onDone={onChanged} />}
+          {c.id === "chat" && <LoginAction which="chat" label={c.state === "connected" ? "Cambiar el chat de reporte" : "Conectar el chat de reporte"} onDone={onChanged} />}
           {c.id === "dev" && <DevRepos onChange={onChanged} />}
         </div>
       </div>
@@ -237,9 +374,14 @@ function ConnectorCard({ c, onChanged, onAsk }: { c: Connector; onChanged: () =>
 
 export function ConnectorsPanel({ open, onClose, state, onAsk }: { open: boolean; onClose: () => void; state: ReturnType<typeof useConnectors>; onAsk: (text: string) => void }) {
   const { data, loading, error, load } = state;
+  const [refreshKey, setRefreshKey] = useState(0);
   useEffect(() => {
     if (open && !data && !loading) void load();
   }, [open, data, loading, load]);
+  const changed = () => {
+    setRefreshKey((k) => k + 1);
+    void load(true);
+  };
   return (
     <Overlay open={open} onClose={onClose} kind="sheet" label="Conectores">
       <div className="sheet">
@@ -251,8 +393,8 @@ export function ConnectorsPanel({ open, onClose, state, onAsk }: { open: boolean
             </p>
           </div>
           <div className="sheet__actions">
-            <IconButton icon="refresh" label="Volver a revisar" onClick={() => void load(true)} disabled={loading} className={loading ? "is-spinning" : ""} />
-            <IconButton icon="x" label="Cerrar" onClick={onClose} />
+            <IconButton icon="refresh" label="Volver a revisar" side="bottom" onClick={changed} disabled={loading} className={loading ? "is-spinning" : ""} />
+            <IconButton icon="x" label="Cerrar" side="bottom" onClick={onClose} />
           </div>
         </header>
         <div className="sheet__body">
@@ -271,7 +413,16 @@ export function ConnectorsPanel({ open, onClose, state, onAsk }: { open: boolean
             </div>
           )}
           {data?.connectors.map((c) => (
-            <ConnectorCard key={c.id} c={c} onChanged={() => void load(true)} onAsk={(t) => { onClose(); onAsk(t); }} />
+            <ConnectorCard
+              key={c.id}
+              c={c}
+              refreshKey={refreshKey}
+              onChanged={changed}
+              onAsk={(t) => {
+                onClose();
+                onAsk(t);
+              }}
+            />
           ))}
           {!!data?.problems.length && (
             <section className="problems">

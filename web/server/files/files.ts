@@ -3,8 +3,9 @@
  * Vista previa y extracción de texto para el modelo (Word, Excel, CSV, texto); PDF e imágenes van directo.
  */
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { MSG } from "../../shared/messages.js";
 import type { FilePreview } from "../../shared/protocol.js";
 import type { KeyRing } from "../security/crypto.js";
 import type { FileRow, Store } from "../store/db.js";
@@ -18,8 +19,9 @@ export function createFiles(dataDir: string, keys: KeyRing, store: Store) {
   const blobPath = (userId: string, id: string) => path.join(dataDir, "files", userId, `${id}.bin`);
 
   async function save(userId: string, originalName: string, bytes: Buffer): Promise<FileRow> {
+    if (!bytes.length) throw Object.assign(new Error(MSG.fileMissing), { statusCode: 400 });
     const kind = sniff(bytes, originalName);
-    if (!kind) throw Object.assign(new Error("Tipo de archivo no permitido. Se aceptan imágenes, PDF, Word, Excel, PowerPoint y texto (sin videos)."), { statusCode: 415 });
+    if (!kind) throw Object.assign(new Error(MSG.fileType), { statusCode: 415 });
     const id = randomUUID();
     let name = safeName(originalName);
     if (!/\.[a-z0-9]{1,8}$/i.test(name)) name = `${name}.${kind.ext}`;
@@ -55,7 +57,12 @@ export function createFiles(dataDir: string, keys: KeyRing, store: Store) {
       }
       return { kind: "text", text: text.slice(0, MAX_TEXT), language: path.extname(row.name).slice(1) || "txt", truncated: text.length > MAX_TEXT };
     }
-    return { kind: "unsupported", reason: "Este formato no tiene vista previa en el navegador; puedes descargarlo." };
+    return { kind: "unsupported", reason: MSG.filePreview };
+  }
+
+  /** Borra todos los adjuntos cifrados de la persona (el registro lo borra el Store). */
+  async function removeAll(userId: string) {
+    await rm(path.join(dataDir, "files", userId), { recursive: true, force: true });
   }
 
   /** Texto para el modelo cuando el proveedor no lee el formato de forma nativa. */
@@ -70,7 +77,7 @@ export function createFiles(dataDir: string, keys: KeyRing, store: Store) {
     return null;
   }
 
-  return { save, read, preview, textFor };
+  return { save, read, preview, textFor, removeAll };
 }
 
 async function readSheets(bytes: Buffer) {

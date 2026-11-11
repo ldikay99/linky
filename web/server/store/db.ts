@@ -166,11 +166,25 @@ export function openStore(dataDir: string, keys: KeyRing) {
         userId,
       );
     },
-    renameConversation(userId: string, id: string, title: string) {
-      db.prepare("UPDATE conversations SET title = ? WHERE id = ? AND user_id = ?").run(keys.seal(userId, "data", `conv-title:${id}`, title), id, userId);
+    renameConversation(userId: string, id: string, title: string): boolean {
+      const r = db.prepare("UPDATE conversations SET title = ? WHERE id = ? AND user_id = ?").run(keys.seal(userId, "data", `conv-title:${id}`, title), id, userId);
+      return Number(r.changes) === 1;
     },
-    deleteConversation(userId: string, id: string) {
-      db.prepare("DELETE FROM conversations WHERE id = ? AND user_id = ?").run(id, userId);
+    deleteConversation(userId: string, id: string): boolean {
+      return Number(db.prepare("DELETE FROM conversations WHERE id = ? AND user_id = ?").run(id, userId).changes) === 1;
+    },
+    /** Borra conversaciones (y sus aprobaciones) y el registro de adjuntos de la persona. Los blobs los borra Files. */
+    deleteUserData(userId: string): { conversations: number; files: number } {
+      db.exec("BEGIN");
+      try {
+        const conversations = Number(db.prepare("DELETE FROM conversations WHERE user_id = ?").run(userId).changes);
+        const files = Number(db.prepare("DELETE FROM files WHERE user_id = ?").run(userId).changes);
+        db.exec("COMMIT");
+        return { conversations, files };
+      } catch (e) {
+        db.exec("ROLLBACK");
+        throw e;
+      }
     },
 
     // ---- archivos (el contenido va cifrado en disco; aquí solo metadatos)

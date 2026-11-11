@@ -53,6 +53,18 @@ export async function registerAzureOrg(
   return next;
 }
 
+/** Quita una organización del registro; si era la principal, pasa a serlo la siguiente (o ninguna). */
+export async function unregisterAzureOrg(organizationUrl: string, dataDir?: string): Promise<AzureOrgRegistry> {
+  const key = orgKey(organizationUrl);
+  const reg = await loadAzureOrgs(dataDir);
+  const orgs = reg.orgs.filter((o) => orgKey(o.organizationUrl) !== key);
+  const wasPrimary = reg.primary !== undefined && orgKey(reg.primary) === key;
+  const next: AzureOrgRegistry = { primary: wasPrimary ? orgs[0]?.organizationUrl : reg.primary, orgs };
+  await mkdir(linkyDataDir(dataDir), { recursive: true, mode: 0o700 });
+  await writeFile(registryPath(dataDir), JSON.stringify(next, null, 2), { encoding: "utf8", mode: 0o600 });
+  return next;
+}
+
 export async function setPrimaryAzureOrg(organizationUrl: string, dataDir?: string): Promise<AzureOrgRegistry> {
   const reg = await loadAzureOrgs(dataDir);
   const found = reg.orgs.find((o) => orgKey(o.organizationUrl) === orgKey(organizationUrl));

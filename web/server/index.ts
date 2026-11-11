@@ -7,7 +7,8 @@ import { execFile } from "node:child_process";
 import { userInfo } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import Fastify from "fastify";
+import Fastify, { type FastifyError } from "fastify";
+import { MSG } from "../shared/messages.js";
 import cookie from "@fastify/cookie";
 import helmet from "@fastify/helmet";
 import multipart from "@fastify/multipart";
@@ -72,9 +73,29 @@ async function main() {
   app.addHook("onSend", async (_req, reply) => {
     reply.header("Permissions-Policy", "microphone=(self), camera=(), geolocation=(), payment=(), usb=(), interest-cohort=()");
   });
-  await app.register(rateLimit, { global: true, max: 600, timeWindow: "1 minute", keyGenerator: (req) => req.cookies?.linky_sid?.slice(0, 16) ?? req.ip });
+  await app.register(rateLimit, {
+    global: true,
+    max: 600,
+    timeWindow: "1 minute",
+    keyGenerator: (req) => req.cookies?.linky_sid?.slice(0, 16) ?? req.ip,
+    errorResponseBuilder: (_req, ctx) => ({ statusCode: ctx.statusCode, error: MSG.tooMany }),
+  });
   await app.register(cookie);
   await app.register(multipart, { limits: { fileSize: config.maxUploadBytes, files: 1, fields: 4, parts: 6 } });
+
+  // Ningún error sale con trazas, rutas ni textos internos: solo un mensaje corto y conocido.
+  app.setErrorHandler((err: FastifyError, req, reply) => {
+    const code = err.code ?? "";
+    const status = err.statusCode && err.statusCode >= 400 ? err.statusCode : 500;
+    let message: string = MSG.internal;
+    if (status === 429) message = MSG.tooMany;
+    else if (code === "FST_REQ_FILE_TOO_LARGE" || code === "FST_FILES_LIMIT" || code === "FST_PARTS_LIMIT") message = MSG.fileTooBig(Math.round(config.maxUploadBytes / 1024 / 1024));
+    else if (code === "FST_ERR_CTP_BODY_TOO_LARGE" || status === 413) message = MSG.tooLarge;
+    else if (code.startsWith("FST_ERR_CTP") || code === "FST_INVALID_MULTIPART_CONTENT_TYPE" || status === 400 || status === 415) message = MSG.invalid;
+    else if (status === 404) message = MSG.notFound;
+    if (status >= 500) req.log.error(err);
+    if (!reply.sent) reply.code(status).send({ error: message });
+  });
   auth.register(app);
   registerRoutes(app, { config, ai, store, files, workspaces }, connectors);
 
@@ -83,7 +104,7 @@ async function main() {
     const indexHtml = path.join(DIST, "index.html");
     // Rutas de la app (SPA): siempre index.html sin caché; /api desconocido responde 404 JSON.
     app.setNotFoundHandler((req, reply) => {
-      if (req.url.startsWith("/api/") || req.method !== "GET") return reply.code(404).send({ error: "No encontrado." });
+      if (req.url.startsWith("/api/") || req.method !== "GET") return reply.code(404).send({ error: MSG.notFound });
       return reply.header("Cache-Control", "no-store").sendFile("index.html", path.dirname(indexHtml), { maxAge: 0, immutable: false });
     });
   } else {

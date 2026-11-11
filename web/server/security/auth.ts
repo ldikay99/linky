@@ -8,6 +8,7 @@
  * - Toda petición que cambia algo exige el encabezado CSRF de la sesión y un Origin permitido.
  */
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { MSG } from "../../shared/messages.js";
 import type { Config } from "../config.js";
 import type { Store, UserRow } from "../store/db.js";
 import { randomToken, safeEqual, sha256 } from "./crypto.js";
@@ -48,12 +49,12 @@ export function createAuth(config: Config, store: Store) {
     app.addHook("onRequest", async (req: FastifyRequest, reply: FastifyReply) => {
       // Solo los nombres de host esperados: una página externa que apunte su dominio a 127.0.0.1 no entra.
       const host = req.headers.host ?? "";
-      if (!allowedHosts.has(host) && !(config.dev && host.endsWith(":5173"))) return reply.code(421).send({ error: "Host no permitido." });
+      if (!allowedHosts.has(host) && !(config.dev && host.endsWith(":5173"))) return reply.code(421).send({ error: MSG.host });
       const url = req.url.split("?")[0];
       if (!url.startsWith("/api/")) return;
       if (UNSAFE.has(req.method)) {
         const origin = req.headers.origin;
-        if (!origin || !config.origins.has(origin)) return reply.code(403).send({ error: "Origen no permitido." });
+        if (!origin || !config.origins.has(origin)) return reply.code(403).send({ error: MSG.origin, code: "origin" });
       }
       if (PUBLIC.has(url)) return;
       const sid = req.cookies[SESSION_COOKIE];
@@ -68,11 +69,11 @@ export function createAuth(config: Config, store: Store) {
       }
       const user = session ? store.userById(session.userId) : null;
       if (!session || !user || !hash) {
-        return reply.code(401).send({ error: config.tenancy === "multi" ? "El inicio de sesión con cuenta llega pronto." : "Sesión no válida; recarga la página." });
+        return reply.code(401).send({ error: config.tenancy === "multi" ? MSG.multiLogin : MSG.session, code: "session" });
       }
       if (UNSAFE.has(req.method)) {
         const sent = req.headers["x-linky-csrf"];
-        if (typeof sent !== "string" || !safeEqual(sent, session.csrf)) return reply.code(403).send({ error: "Falta el token CSRF." });
+        if (typeof sent !== "string" || !safeEqual(sent, session.csrf)) return reply.code(403).send({ error: MSG.csrf, code: "csrf" });
       }
       req.user = user;
       req.csrf = session.csrf;

@@ -4,6 +4,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { stepCountIs, streamText, type ModelMessage, type UserContent } from "ai";
+import { MSG } from "../../shared/messages.js";
 import type { ApprovalPart, Attachment, StreamEvent, ToolPart, UiMessage, UiPart } from "../../shared/protocol.js";
 import { nativeFile, type Ai } from "../ai/providers.js";
 import { systemPrompt } from "../ai/system.js";
@@ -27,6 +28,15 @@ const HYDRATE_LAST_USER_TURNS = 4;
 const busy = new Set<string>();
 
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)}\n…(recortado)` : s);
+
+/** Error del proveedor de IA en un mensaje corto y sin detalles internos (claves, URLs, cuerpos de respuesta). */
+export function aiErrorMessage(e: unknown): string {
+  const status = (e as { statusCode?: number; status?: number })?.statusCode ?? (e as { status?: number })?.status;
+  if (status === 401 || status === 403) return MSG.aiAuth;
+  if (status === 429 || status === 529 || status === 503) return MSG.aiRate;
+  if ((e as Error)?.name === "TimeoutError") return MSG.timeout;
+  return MSG.aiFailed;
+}
 
 export function summaryLines(text?: string): string[] {
   if (!text) return ["No hay preview para mostrar."];
@@ -85,11 +95,11 @@ export type TurnInput =
 
 export async function runTurn(deps: Deps, user: UserRow, conversationId: string, input: TurnInput, emit: Emit, signal: AbortSignal): Promise<void> {
   const lock = `${user.id}:${conversationId}`;
-  if (busy.has(lock)) throw Object.assign(new Error("Esta conversación ya está respondiendo."), { statusCode: 409 });
+  if (busy.has(lock)) throw Object.assign(new Error(MSG.busyConversation), { statusCode: 409, expose: true });
   busy.add(lock);
   try {
     const conv = deps.store.conversation(user.id, conversationId);
-    if (!conv) throw Object.assign(new Error("Conversación no encontrada."), { statusCode: 404 });
+    if (!conv) throw Object.assign(new Error(MSG.conversationNotFound), { statusCode: 404, expose: true });
     const { transcript, history } = conv;
     const ctx: ToolContext = { user, conversationId, ws: deps.workspaces.forUser(user), files: deps.files, history, signal };
     const save = () => deps.store.saveConversation(user.id, conversationId, { transcript, history });
@@ -142,10 +152,7 @@ export async function runTurn(deps: Deps, user: UserRow, conversationId: string,
       if (deps.ai.model) await modelTurn(deps, user, ctx, history, { pushText, pushPart, patchTool }, signal);
       else await localTurn(deps, ctx, input, { pushText, pushPart, patchTool });
     } catch (e) {
-      if (!signal.aborted) {
-        const message = e instanceof Error ? e.message.split("\n")[0] : "Error inesperado.";
-        pushPart({ type: "notice", tone: "error", text: `No se pudo completar la respuesta: ${message}` });
-      }
+      if (!signal.aborted) pushPart({ type: "notice", tone: "error", text: aiErrorMessage(e) });
     }
     if (!parts.length) transcript.pop();
     save();
@@ -213,7 +220,6 @@ async function localTurn(deps: Deps, ctx: ToolContext, input: TurnInput, sink: S
   if (plan.kind === "text") {
     sink.pushText(plan.text);
     if (plan.action) sink.pushPart({ type: "notice", tone: "info", text: plan.action === "open-connectors" ? "Abrir Conectores" : "Abrir configuración inicial", action: plan.action });
-    if (deps.ai.problem) sink.pushPart({ type: "notice", tone: "warn", text: deps.ai.problem });
     return;
   }
   sink.pushText(`${plan.intro}\n\n`);
@@ -244,9 +250,9 @@ async function settleApproval(
   emit: Emit,
 ): Promise<{ continueModel: boolean }> {
   const row = deps.store.approval(user.id, input.approvalId);
-  if (!row || row.conversationId !== conversationId) throw Object.assign(new Error("Aprobación no encontrada."), { statusCode: 404 });
+  if (!row || row.conversationId !== conversationId) throw Object.assign(new Error(MSG.approvalNotFound), { statusCode: 404, expose: true });
   if (!deps.store.settleApproval(user.id, row.id, input.approve ? "approved" : "rejected")) {
-    throw Object.assign(new Error("Esta aprobación ya se resolvió."), { statusCode: 409 });
+    throw Object.assign(new Error(MSG.approvalDone), { statusCode: 409, expose: true });
   }
   deps.store.audit(user.id, input.approve ? "approval.approved" : "approval.rejected", row.toolName);
   const part = transcript.flatMap((m) => m.parts ?? []).find((p) => p.type === "approval" && p.id === row.id) as ApprovalPart | undefined;

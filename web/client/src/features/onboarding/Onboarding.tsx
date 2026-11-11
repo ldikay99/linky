@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ConnectorsResponse, MeetingItem, OnboardingStepId, ProfileForm, SessionInfo } from "../../../../shared/protocol";
+import { Schemas, fieldErrors } from "../../../../shared/schemas";
 import { api } from "../../api";
 import { Isotype, Logotype } from "../../ui/brand";
 import { Icon, type IconName } from "../../ui/icons";
@@ -84,16 +85,23 @@ function ProfileStep({ session, onDone }: { session: SessionInfo; onDone: () => 
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
   const set = <K extends keyof ProfileForm>(k: K, v: ProfileForm[K]) => setF((x) => ({ ...x, [k]: v }));
-  const valid = f.organizationUrl && f.project && f.occupation.length > 1 && f.projectContext.length > 1 && f.assignedDisplayName;
+  // Mismas reglas que el servidor (shared/schemas): los errores salen junto a cada campo.
+  const [tried, setTried] = useState(false);
+  const check = Schemas.profile.safeParse(f);
+  const errs: Record<string, string> = check.success ? {} : fieldErrors(check.error);
+  const err = (k: string) => (tried ? (errs[k] ?? null) : null);
   return (
     <form
       className="form"
+      noValidate
       onSubmit={async (e) => {
         e.preventDefault();
+        setTried(true);
+        if (!check.success) return;
         setBusy(true);
         setError(null);
         try {
-          await api.saveProfile(f);
+          await api.saveProfile(check.data);
           toast("ok", "Perfil guardado.");
           onDone();
         } catch (err) {
@@ -104,19 +112,19 @@ function ProfileStep({ session, onDone }: { session: SessionInfo; onDone: () => 
       }}
     >
       <div className="form__grid">
-        <Field label="Organización de Azure">{(id) => <Input id={id} value={f.organizationUrl} onChange={(e) => set("organizationUrl", e.target.value)} placeholder="https://dev.azure.com/tu-organizacion" spellCheck={false} />}</Field>
-        <Field label="Proyecto (nombre exacto)">{(id) => <Input id={id} value={f.project} onChange={(e) => set("project", e.target.value)} placeholder="Como aparece en Azure" />}</Field>
-        <Field label="¿A qué te dedicas?" hint="Tu rol, para redactar HU y Tasks a tu medida.">{(id) => <Input id={id} value={f.occupation} onChange={(e) => set("occupation", e.target.value)} placeholder="Analista, desarrolladora, coordinador…" />}</Field>
-        <Field label="Nombre como aparece en Azure">{(id) => <Input id={id} value={f.assignedDisplayName} onChange={(e) => set("assignedDisplayName", e.target.value)} />}</Field>
+        <Field label="Organización de Azure" error={err("organizationUrl")}>{(id) => <Input id={id} value={f.organizationUrl} onChange={(e) => set("organizationUrl", e.target.value)} placeholder="https://dev.azure.com/tu-organizacion" spellCheck={false} />}</Field>
+        <Field label="Proyecto (nombre exacto)" error={err("project")}>{(id) => <Input id={id} value={f.project} onChange={(e) => set("project", e.target.value)} placeholder="Como aparece en Azure" />}</Field>
+        <Field label="¿A qué te dedicas?" error={err("occupation")} hint="Tu rol, para redactar HU y Tasks a tu medida.">{(id) => <Input id={id} value={f.occupation} onChange={(e) => set("occupation", e.target.value)} placeholder="Analista, desarrolladora, coordinador…" />}</Field>
+        <Field label="Nombre como aparece en Azure" error={err("assignedDisplayName")}>{(id) => <Input id={id} value={f.assignedDisplayName} onChange={(e) => set("assignedDisplayName", e.target.value)} />}</Field>
       </div>
-      <Field label="¿De qué trata tu proyecto?">{(id) => <TextArea id={id} rows={3} value={f.projectContext} onChange={(e) => set("projectContext", e.target.value)} placeholder="Una o dos frases sobre el proyecto y su propósito." />}</Field>
+      <Field label="¿De qué trata tu proyecto?" error={err("projectContext")}>{(id) => <TextArea id={id} rows={3} value={f.projectContext} onChange={(e) => set("projectContext", e.target.value)} placeholder="Una o dos frases sobre el proyecto y su propósito." />}</Field>
       <div className="form__grid form__grid--4">
         <Field label="Lun–Jue entrada">{(id) => <Input id={id} type="time" value={f.mondayToThursday.start} onChange={(e) => set("mondayToThursday", { ...f.mondayToThursday, start: e.target.value })} />}</Field>
-        <Field label="Lun–Jue salida">{(id) => <Input id={id} type="time" value={f.mondayToThursday.end} onChange={(e) => set("mondayToThursday", { ...f.mondayToThursday, end: e.target.value })} />}</Field>
+        <Field label="Lun–Jue salida" error={err("mondayToThursday.end")}>{(id) => <Input id={id} type="time" value={f.mondayToThursday.end} onChange={(e) => set("mondayToThursday", { ...f.mondayToThursday, end: e.target.value })} />}</Field>
         <Field label="Viernes entrada">{(id) => <Input id={id} type="time" value={f.friday.start} onChange={(e) => set("friday", { ...f.friday, start: e.target.value })} />}</Field>
-        <Field label="Viernes salida">{(id) => <Input id={id} type="time" value={f.friday.end} onChange={(e) => set("friday", { ...f.friday, end: e.target.value })} />}</Field>
+        <Field label="Viernes salida" error={err("friday.end")}>{(id) => <Input id={id} type="time" value={f.friday.end} onChange={(e) => set("friday", { ...f.friday, end: e.target.value })} />}</Field>
         <Field label="Almuerzo desde">{(id) => <Input id={id} type="time" value={f.lunchStart} onChange={(e) => set("lunchStart", e.target.value)} />}</Field>
-        <Field label="Almuerzo hasta">{(id) => <Input id={id} type="time" value={f.lunchEnd} onChange={(e) => set("lunchEnd", e.target.value)} />}</Field>
+        <Field label="Almuerzo hasta" error={err("lunchEnd")}>{(id) => <Input id={id} type="time" value={f.lunchEnd} onChange={(e) => set("lunchEnd", e.target.value)} />}</Field>
       </div>
       <div className="form__grid">
         <Field label="¿Quién crea las HU?">
@@ -154,7 +162,7 @@ function ProfileStep({ session, onDone }: { session: SessionInfo; onDone: () => 
         </div>
       )}
       <div className="form__actions">
-        <Button type="submit" variant="primary" icon="check" loading={busy} disabled={!valid}>
+        <Button type="submit" variant="primary" icon="check" loading={busy}>
           Guardar perfil
         </Button>
       </div>

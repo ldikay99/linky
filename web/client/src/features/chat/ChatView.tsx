@@ -69,7 +69,8 @@ export function ChatView({ chat, session, onOpenFile, onAction, sidebarCollapsed
       }}
     >
       <header className="chat__header">
-        <IconButton icon="sidebar" label={sidebarCollapsed ? "Mostrar barra lateral" : "Ocultar barra lateral"} onClick={onToggleSidebar} className="chat__toggle" />
+        {/* Solo en móvil: abre el cajón. En escritorio la barra se expande desde su propio logo. */}
+        <IconButton icon="sidebar" label="Abrir barra lateral" side="bottom" onClick={onToggleSidebar} className="chat__toggle" />
         <h1 className="chat__title">{empty ? "" : title}</h1>
         <div className={`ai-pill ${session.ai.configured ? "is-on" : ""}`} title={session.ai.configured ? `${session.ai.provider} · ${session.ai.model}` : "Sin proveedor de IA: modo de acciones directas"}>
           <span className="ai-pill__dot" />

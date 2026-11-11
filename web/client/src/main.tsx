@@ -6,12 +6,14 @@ import "./styles/app.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
-import { ToastProvider } from "./ui/primitives";
+import { ConfirmProvider, ToastProvider } from "./ui/primitives";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ToastProvider>
-      <App />
+      <ConfirmProvider>
+        <App />
+      </ConfirmProvider>
     </ToastProvider>
   </StrictMode>,
 );
