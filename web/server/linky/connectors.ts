@@ -127,7 +127,23 @@ export function createConnectors() {
     return r;
   }
 
+  /**
+   * Vencimiento real del token de la organización: primero se lee del correo que Azure envía al crearlo
+   * (azure expires --from-mail) y luego se toma el registrado. null si no hay forma de saberlo.
+   */
+  async function knownExpiry(ws: Workspace, organizationUrl: string): Promise<string | null> {
+    await cli(ws, ["azure", "expires", "--from-mail"], { timeoutMs: 120_000 }).catch(() => null);
+    const key = (u: string) => u.trim().replace(/\/$/, "").toLowerCase();
+    const r = await cli(ws, ["azure", "orgs"], { timeoutMs: 60_000 });
+    const orgs = (r.json as { orgs?: Array<{ organizationUrl: string; expiresOn?: string }> } | null)?.orgs ?? [];
+    const v = orgs.find((o) => key(o.organizationUrl) === key(organizationUrl))?.expiresOn;
+    return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+  }
+
   async function saveProfile(user: UserRow, ws: Workspace, form: ProfileForm) {
+    const known = await knownExpiry(ws, form.organizationUrl);
+    // Solo si no hay correo ni fecha registrada: provisional a 90 días (lo recomendado al crear el token);
+    // Linky lo corrige al llegar el correo o al fallar el token.
     const in90 = new Date(Date.now() + 90 * 86_400_000).toISOString().slice(0, 10);
     const answers = {
       organizationUrl: form.organizationUrl,
@@ -146,14 +162,12 @@ export function createConnectors() {
       lunchEnd: form.lunchEnd,
       lunchMinutes: minutes(form.lunchEnd) - minutes(form.lunchStart),
       confirmScheduleInterpretation: true,
-      // Provisional: Linky lo corrige con el correo de Azure (azure expires --from-mail) o al fallar el token.
-      patExpiresOn: in90,
+      patExpiresOn: known ?? in90,
       scopeChoice: "full_access",
       fullAccessAcknowledged: true,
       confirmDeviceTimeZone: true,
     };
     const r = await withTempJson(ws, answers, (file) => cli(ws, ["onboarding", "--answers", file], { timeoutMs: 180_000 }));
-    if (r.ok) await cli(ws, ["azure", "expires", "--from-mail"], { timeoutMs: 120_000 }).catch(() => null);
     invalidate(user);
     return r;
   }
