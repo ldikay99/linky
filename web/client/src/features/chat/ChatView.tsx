@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Attachment, NoticePart, SessionInfo } from "../../../../shared/protocol";
 import type { ChatState } from "../../state/useChat";
-import { Isotype } from "../../ui/brand";
+import { Isotype, Mascot } from "../../ui/brand";
 import { Icon, type IconName } from "../../ui/icons";
 import { IconButton, Spinner } from "../../ui/primitives";
 import { Composer, type ComposerHandle } from "./Composer";
@@ -86,7 +86,7 @@ export function ChatView({ chat, session, onOpenFile, onAction, sidebarCollapsed
         )}
         {empty ? (
           <section className="hello">
-            <Isotype size={64} animated />
+            <Mascot size={96} />
             <h2 className="hello__title">{firstName ? `Hola, ${firstName}` : "Hola"}</h2>
             <p className="hello__sub">¿Qué registramos hoy? Puedes escribir, dictar o adjuntar evidencias.</p>
             <div className="hello__grid">

@@ -21,6 +21,58 @@
     stroke-dashoffset: 0;
   }
 }
+.mascot {
+  flex: none;
+  overflow: visible;
+  animation: mascot-in 620ms var(--ease-out) both;
+}
+.mascot__bird {
+  transform-origin: 60px 110px;
+  transition: transform var(--t-slow) var(--ease-out);
+}
+.mascot:hover .mascot__bird {
+  transform: rotate(-6deg);
+}
+/* Guiño cada 6 s: el ojo abierto se oculta un instante y aparece el guiño. */
+.mascot__eye-open {
+  animation: eye-open 6s steps(1) 1.2s infinite;
+}
+.mascot__eye-wink {
+  opacity: 0;
+  animation: eye-wink 6s steps(1) 1.2s infinite;
+}
+@keyframes eye-open {
+  0%,
+  88% {
+    opacity: 1;
+  }
+  89%,
+  97% {
+    opacity: 0;
+  }
+  98% {
+    opacity: 1;
+  }
+}
+@keyframes eye-wink {
+  0%,
+  88% {
+    opacity: 0;
+  }
+  89%,
+  97% {
+    opacity: 1;
+  }
+  98% {
+    opacity: 0;
+  }
+}
+@keyframes mascot-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.92);
+  }
+}
 .logotype {
   font-weight: 650;
   letter-spacing: -0.045em;
