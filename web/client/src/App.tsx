@@ -10,7 +10,7 @@ import { Sidebar } from "./features/sidebar/Sidebar";
 import { FileViewer } from "./features/viewer/FileViewer";
 import { SessionContext } from "./state/session";
 import { useChat } from "./state/useChat";
-import { Isotype } from "./ui/brand";
+import { Isotype, Mascot } from "./ui/brand";
 import { Spinner, useToast } from "./ui/primitives";
 
 const COLLAPSE_KEY = "linky.sidebar.collapsed";
@@ -26,7 +26,7 @@ function readCollapsed() {
 function Locked({ message }: { message: string }) {
   return (
     <div className="locked">
-      <Isotype size={64} />
+      <Mascot size={96} />
       <h1>No se pudo abrir Linky</h1>
       <p>{message}</p>
       <button type="button" className="btn btn--primary btn--md" onClick={() => window.location.reload()}>

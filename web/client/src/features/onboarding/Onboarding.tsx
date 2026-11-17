@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ConnectorsResponse, MeetingItem, OnboardingStepId, ProfileForm, SessionInfo } from "../../../../shared/protocol";
 import { Schemas, fieldErrors } from "../../../../shared/schemas";
 import { api } from "../../api";
-import { Isotype, Logotype } from "../../ui/brand";
+import { Isotype, Logotype, Mascot } from "../../ui/brand";
 import { Icon, type IconName } from "../../ui/icons";
 import { Button, Field, Input, Select, Spinner, StatusDot, TextArea, useToast } from "../../ui/primitives";
 import { AzureConnect, DevRepos, LoginAction } from "../connectors/Connectors";
@@ -30,7 +30,7 @@ function Welcome({ name, onStart, onSkip }: { name: string; onStart: () => void;
       <div className="welcome__glow" aria-hidden="true" />
       <div className="welcome__grid" aria-hidden="true" />
       <div className="welcome__content">
-        <Isotype size={92} animated />
+        <Mascot size={132} />
         <div className="welcome__word">
           <Logotype size={54} />
         </div>
