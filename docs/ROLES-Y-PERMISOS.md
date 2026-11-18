@@ -1,33 +1,30 @@
 # Roles, permisos y aprobación de escrituras
 
-Linky trabaja con tres roles. Cada persona tiene uno, y el rol solo amplía lo que se puede administrar: nadie registra
-ni lee el trabajo de otra persona en su nombre.
+Linky trabaja con dos roles. Cada persona tiene uno, y el rol solo amplía lo que se puede administrar: nadie registra
+ni lee el trabajo de otra persona en su nombre. Los roles de otras áreas se definen cuando Linky se abra a ellas.
 
 ## Roles
 
 | Rol | Quién | Para qué |
 |---|---|---|
-| Usuario | Cada persona del área de Datos | Registrar su propio día. |
-| Líder | Líder del área | Hacer seguimiento del cumplimiento del registro de su equipo. |
-| Administrador | Responsable de Linky en el área | Gestionar las cuentas y la operación del servidor. |
+| user | Cada persona del área de Datos | Registrar su propio día. |
+| admin | Responsable de Linky en el área | Lo mismo que user, más gestionar las cuentas y la operación del servidor. |
 
 ## Permisos
 
-| Acción | Usuario | Líder | Administrador |
-|---|---|---|---|
-| Conversar con el asistente y adjuntar evidencias | Sí | Sí | Sí |
-| Conectar sus propias cuentas (Azure DevOps, Google, Ripor) | Sí | Sí | Sí |
-| Ver y aprobar las vistas previas de sus registros | Sí | Sí | Sí |
-| Ver sus conversaciones, memoria y adjuntos | Sí | Sí | Sí |
-| Ver qué días le faltan por registrar a cada persona de su equipo | No | Sí | No |
-| Crear, desactivar y desbloquear cuentas, y asignar roles | No | No | Sí |
-| Consultar el registro de auditoría | No | No | Sí |
-| Ver conversaciones, memoria, adjuntos o tokens de otra persona | No | No | No |
-| Aprobar o aplicar registros en nombre de otra persona | No | No | No |
+| Acción | user | admin |
+|---|---|---|
+| Conversar con el asistente y adjuntar evidencias | Sí | Sí |
+| Conectar sus propias cuentas (Azure DevOps, Google, Ripor) | Sí | Sí |
+| Ver y aprobar las vistas previas de sus registros | Sí | Sí |
+| Ver sus conversaciones, memoria y adjuntos | Sí | Sí |
+| Crear, desactivar y desbloquear cuentas, y asignar roles | No | Sí |
+| Consultar el registro de auditoría | No | Sí |
+| Ver conversaciones, memoria, adjuntos o tokens de otra persona | No | No |
+| Aprobar o aplicar registros en nombre de otra persona | No | No |
 
-El líder ve el estado del registro (días pendientes, PAT por vencer), no el contenido de las conversaciones. El
-administrador opera la plataforma, pero los secretos y el contenido de cada persona están cifrados con claves por
-persona y tampoco puede leerlos.
+El admin opera la plataforma, pero los secretos y el contenido de cada persona están cifrados con claves por persona y
+tampoco puede leerlos.
 
 ## Política de aprobación de escrituras
 
