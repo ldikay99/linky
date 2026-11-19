@@ -29,12 +29,12 @@ export function createFiles(dataDir: string, keys: KeyRing, store: Store) {
     await mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
     await writeFile(file, keys.seal(userId, "files", `file:${id}`, bytes), { mode: 0o600 });
     const row: FileRow = { id, userId, name, mediaType: kind.mediaType, kind: kind.kind, size: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex"), createdAt: Date.now() };
-    store.addFile(row);
+    await store.addFile(row);
     return row;
   }
 
   async function read(userId: string, id: string): Promise<{ row: FileRow; bytes: Buffer } | null> {
-    const row = store.file(userId, id);
+    const row = await store.file(userId, id);
     if (!row) return null;
     const bytes = keys.open(userId, "files", `file:${id}`, await readFile(blobPath(userId, id)));
     return { row, bytes };

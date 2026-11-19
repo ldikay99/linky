@@ -14,8 +14,8 @@ async function app(tenancy: "single" | "multi") {
   const dataDir = await mkdtemp(path.join(tmpdir(), "linky-auth-"));
   const env = { LINKY_WEB_DATA_DIR: dataDir, LINKY_WEB_TENANCY: tenancy, LINKY_WEB_MASTER_KEY: randomBytes(32).toString("base64") };
   const config = loadConfig(env);
-  const store = openStore(dataDir, new KeyRing(randomBytes(32)));
-  store.createUser("Persona", null, "owner");
+  const store = await openStore(dataDir, new KeyRing(randomBytes(32)));
+  await store.createUser("Persona", null, "owner");
   const a = Fastify();
   await a.register(cookie);
   createAuth(config, store).register(a);

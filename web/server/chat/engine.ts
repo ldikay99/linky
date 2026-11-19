@@ -100,7 +100,7 @@ export async function runTurn(deps: Deps, user: UserRow, conversationId: string,
   if (busy.has(lock)) throw Object.assign(new Error(MSG.busyConversation), { statusCode: 409, expose: true });
   busy.add(lock);
   try {
-    const conv = deps.store.conversation(user.id, conversationId);
+    const conv = await deps.store.conversation(user.id, conversationId);
     if (!conv) throw Object.assign(new Error(MSG.conversationNotFound), { statusCode: 404, expose: true });
     const { transcript, history } = conv;
     const ctx: ToolContext = { user, conversationId, ws: deps.workspaces.forUser(user), files: deps.files, memory: deps.memory, history, signal };
@@ -118,12 +118,12 @@ export async function runTurn(deps: Deps, user: UserRow, conversationId: string,
       });
       if (conv.title === NEW_TITLE && text) {
         const title = text.replace(/\s+/g, " ").slice(0, 64);
-        deps.store.renameConversation(user.id, conversationId, title);
+        await deps.store.renameConversation(user.id, conversationId, title);
         emit({ type: "conversation", id: conversationId, title });
       }
     } else {
       const settled = await settleApproval(deps, user, conversationId, input, ctx, transcript, emit);
-      save();
+      await save();
       if (!settled.continueModel) {
         emit({ type: "done" });
         return;
@@ -157,7 +157,7 @@ export async function runTurn(deps: Deps, user: UserRow, conversationId: string,
       if (!signal.aborted) pushPart({ type: "notice", tone: "error", text: aiErrorMessage(e) });
     }
     if (!parts.length) transcript.pop();
-    save();
+    await save();
     emit({ type: "done" });
     // Se indexa el turno en segundo plano para poder encontrarlo después (memoria entre chats).
     const said = parts.filter((p) => p.type === "text").map((p) => (p as { text: string }).text).join("\n");
@@ -288,7 +288,7 @@ async function modelTurn(deps: Deps, user: UserRow, ctx: ToolContext, history: S
   history.messages.push(...((await result.responseMessages) as unknown[]));
   for (const call of approvalCalls) {
     const id = randomUUID();
-    deps.store.addApproval({ id, userId: user.id, conversationId: ctx.conversationId, toolCallId: call.toolCallId, toolName: call.toolName, input: call.input });
+    await deps.store.addApproval({ id, userId: user.id, conversationId: ctx.conversationId, toolCallId: call.toolCallId, toolName: call.toolName, input: call.input });
     sink.pushPart({ type: "approval", id, toolName: call.toolName, title: APPROVALS[call.toolName].title, summary: summaryLines(approvalPreview(call.toolName, history)), status: "pending" });
   }
 }
@@ -328,12 +328,12 @@ async function settleApproval(
   transcript: UiMessage[],
   emit: Emit,
 ): Promise<{ continueModel: boolean }> {
-  const row = deps.store.approval(user.id, input.approvalId);
+  const row = await deps.store.approval(user.id, input.approvalId);
   if (!row || row.conversationId !== conversationId) throw Object.assign(new Error(MSG.approvalNotFound), { statusCode: 404, expose: true });
-  if (!deps.store.settleApproval(user.id, row.id, input.approve ? "approved" : "rejected")) {
+  if (!(await deps.store.settleApproval(user.id, row.id, input.approve ? "approved" : "rejected"))) {
     throw Object.assign(new Error(MSG.approvalDone), { statusCode: 409, expose: true });
   }
-  deps.store.audit(user.id, input.approve ? "approval.approved" : "approval.rejected", row.toolName);
+  await deps.store.audit(user.id, input.approve ? "approval.approved" : "approval.rejected", row.toolName);
   const part = transcript.flatMap((m) => m.parts ?? []).find((p) => p.type === "approval" && p.id === row.id) as ApprovalPart | undefined;
   let output: { type: "text"; value: string } | { type: "execution-denied"; reason: string };
   if (input.approve) {
@@ -349,5 +349,5 @@ async function settleApproval(
   }
   ctx.history.messages.push({ role: "tool", content: [{ type: "tool-result", toolCallId: row.toolCallId, toolName: row.toolName, output }] });
   // Si el modelo pidió varias escrituras a la vez, se continúa cuando todas estén resueltas.
-  return { continueModel: Boolean(deps.ai.model) && deps.store.pendingApprovals(user.id, conversationId).length === 0 };
+  return { continueModel: Boolean(deps.ai.model) && (await deps.store.pendingApprovals(user.id, conversationId)).length === 0 };
 }

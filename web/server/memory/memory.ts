@@ -74,13 +74,13 @@ export function createMemory(store: Store, embedder: EmbeddingModel | null) {
     const clean = text.replace(/\s+/g, " ").trim().slice(0, 1_000);
     if (clean.length < 3) return { ok: false, reason: "vacío" };
     if (looksSecret(clean)) return { ok: false, reason: "secreto" };
-    const existing = store.memories(userId, "fact", 1000);
+    const existing = await store.memories(userId, "fact", 1000);
     const norm = tokens(clean).join(" ");
     const dup = existing.find((m) => tokens(m.text).join(" ") === norm);
     if (dup) return { ok: true, id: dup.id, duplicate: true };
     const [vector] = await vectors([clean]);
     const id = randomUUID();
-    store.addMemory({ id, userId, kind: "fact", conversationId: null, text: clean, vector });
+    await store.addMemory({ id, userId, kind: "fact", conversationId: null, text: clean, vector });
     return { ok: true, id };
   }
 
@@ -90,11 +90,11 @@ export function createMemory(store: Store, embedder: EmbeddingModel | null) {
     if (body.length < 20 || looksSecret(body)) return;
     const parts = chunk(body).slice(0, 8);
     const vecs = await vectors(parts);
-    parts.forEach((text, i) => store.addMemory({ id: randomUUID(), userId, kind: "chunk", conversationId, text, vector: vecs[i] }));
+    for (const [i, text] of parts.entries()) await store.addMemory({ id: randomUUID(), userId, kind: "chunk", conversationId, text, vector: vecs[i] });
   }
 
   async function search(userId: string, query: string, opts: { kind?: MemoryKind; k?: number; excludeConversation?: string } = {}): Promise<MemoryHit[]> {
-    const rows: MemoryRow[] = store.memories(userId, opts.kind).filter((r) => !opts.excludeConversation || r.conversationId !== opts.excludeConversation);
+    const rows: MemoryRow[] = (await store.memories(userId, opts.kind)).filter((r) => !opts.excludeConversation || r.conversationId !== opts.excludeConversation);
     if (!rows.length || !query.trim()) return [];
     const lexical = bm25(query, rows.map((r) => r.text));
     let semantic: number[] | null = null;
@@ -124,7 +124,7 @@ export function createMemory(store: Store, embedder: EmbeddingModel | null) {
 
   /** Recuerdos para el contexto: los relevantes a lo que se pide más los recientes, dentro del presupuesto. */
   async function contextFacts(userId: string, query: string, budgetChars = 4_000): Promise<string[]> {
-    const facts = store.memories(userId, "fact", 400);
+    const facts = await store.memories(userId, "fact", 400);
     if (!facts.length) return [];
     const ranked = query ? await search(userId, query, { kind: "fact", k: 20 }) : [];
     const ordered = [...ranked.map((h) => h.text), ...facts.map((f) => f.text)];

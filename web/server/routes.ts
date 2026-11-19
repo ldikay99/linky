@@ -53,17 +53,17 @@ export function registerRoutes(app: FastifyInstance, deps: Deps, connectors: Con
   });
 
   app.post("/api/onboarding/complete", async (req) => {
-    store.updateUser(user(req).id, { onboarded: true });
+    await store.updateUser(user(req).id, { onboarded: true });
     return { ok: true };
   });
 
   // ---- datos de la persona
   app.delete("/api/me/data", { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } }, async (req) => {
     const u = user(req);
-    const removed = store.deleteUserData(u.id);
+    const removed = await store.deleteUserData(u.id);
     await files.removeAll(u.id);
     await rm(ws(req).scratchDir, { recursive: true, force: true });
-    store.audit(u.id, "data.deleted", `${removed.conversations} conversaciones, ${removed.files} archivos`);
+    await store.audit(u.id, "data.deleted", `${removed.conversations} conversaciones, ${removed.files} archivos`);
     return { ok: true, ...removed };
   });
 
@@ -71,8 +71,8 @@ export function registerRoutes(app: FastifyInstance, deps: Deps, connectors: Con
   app.get("/api/memory", async (req) => {
     const u = user(req);
     return {
-      facts: store.memories(u.id, "fact", 500).map((m) => ({ id: m.id, text: m.text, createdAt: m.createdAt })),
-      chunks: store.countMemories(u.id, "chunk"),
+      facts: (await store.memories(u.id, "fact", 500)).map((m) => ({ id: m.id, text: m.text, createdAt: m.createdAt })),
+      chunks: await store.countMemories(u.id, "chunk"),
       semantic: deps.memory.semantic,
     };
   });
@@ -88,13 +88,13 @@ export function registerRoutes(app: FastifyInstance, deps: Deps, connectors: Con
   app.delete<{ Params: { id: string } }>("/api/memory/:id", async (req, reply) => {
     const id = parse(Schemas.id, req.params.id, reply);
     if (!id) return;
-    if (!store.deleteMemory(user(req).id, id)) return bad(reply, MSG.memoryNotFound, 404);
+    if (!(await store.deleteMemory(user(req).id, id))) return bad(reply, MSG.memoryNotFound, 404);
     return { ok: true };
   });
 
   app.delete("/api/memory", { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } }, async (req) => {
-    const n = store.deleteMemories(user(req).id, "fact");
-    store.audit(user(req).id, "memory.deleted", String(n));
+    const n = await store.deleteMemories(user(req).id, "fact");
+    await store.audit(user(req).id, "memory.deleted", String(n));
     return { ok: true, deleted: n };
   });
 
@@ -104,7 +104,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps, connectors: Con
   app.get<{ Params: { id: string } }>("/api/conversations/:id", async (req, reply) => {
     const id = parse(Schemas.id, req.params.id, reply);
     if (!id) return;
-    const c = store.conversation(user(req).id, id);
+    const c = await store.conversation(user(req).id, id);
     if (!c) return bad(reply, MSG.conversationNotFound, 404);
     return { id, title: c.title, updatedAt: c.updatedAt, messages: c.transcript };
   });
@@ -114,14 +114,14 @@ export function registerRoutes(app: FastifyInstance, deps: Deps, connectors: Con
     if (!id) return;
     const body = parse(Schemas.rename, req.body, reply);
     if (!body) return;
-    if (!store.renameConversation(user(req).id, id, body.title)) return bad(reply, MSG.conversationNotFound, 404);
+    if (!(await store.renameConversation(user(req).id, id, body.title))) return bad(reply, MSG.conversationNotFound, 404);
     return { ok: true };
   });
 
   app.delete<{ Params: { id: string } }>("/api/conversations/:id", async (req, reply) => {
     const id = parse(Schemas.id, req.params.id, reply);
     if (!id) return;
-    if (!store.deleteConversation(user(req).id, id)) return bad(reply, MSG.conversationNotFound, 404);
+    if (!(await store.deleteConversation(user(req).id, id))) return bad(reply, MSG.conversationNotFound, 404);
     return { ok: true };
   });
 
@@ -134,13 +134,13 @@ export function registerRoutes(app: FastifyInstance, deps: Deps, connectors: Con
     const attachments: Attachment[] = [];
     if (body.kind === "message") {
       for (const fid of body.attachmentIds) {
-        const f = store.file(u.id, fid);
+        const f = await store.file(u.id, fid);
         if (!f) return bad(reply, MSG.fileNotFound, 404);
         attachments.push({ id: f.id, name: f.name, mediaType: f.mediaType, kind: f.kind as FileKind, size: f.size });
       }
-      if (conversationId && !store.conversation(u.id, conversationId)) return bad(reply, MSG.conversationNotFound, 404);
-      if (!conversationId) conversationId = store.createConversation(u.id, NEW_TITLE);
-    } else if (!store.conversation(u.id, body.conversationId)) {
+      if (conversationId && !(await store.conversation(u.id, conversationId))) return bad(reply, MSG.conversationNotFound, 404);
+      if (!conversationId) conversationId = await store.createConversation(u.id, NEW_TITLE);
+    } else if (!(await store.conversation(u.id, body.conversationId))) {
       return bad(reply, MSG.conversationNotFound, 404);
     }
     const abort = new AbortController();
@@ -161,7 +161,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps, connectors: Con
     const keepAlive = setInterval(() => !reply.raw.destroyed && reply.raw.write(": ping\n\n"), 15_000);
     try {
       if (body.kind === "message") {
-        emit({ type: "conversation", id: conversationId, title: store.conversation(u.id, conversationId!)!.title });
+        emit({ type: "conversation", id: conversationId, title: (await store.conversation(u.id, conversationId!))!.title });
         await runTurn(deps, u, conversationId!, { kind: "message", text: body.text, attachments }, emit, abort.signal);
       } else {
         await runTurn(deps, u, body.conversationId, { kind: "approval", approvalId: body.approvalId, approve: body.approve }, emit, abort.signal);
@@ -240,11 +240,11 @@ export function registerRoutes(app: FastifyInstance, deps: Deps, connectors: Con
     const body = parse(Schemas.azureConnect, req.body, reply);
     if (!body) return;
     const r = await connectors.connectAzure(user(req), ws(req), body);
-    store.audit(user(req).id, "connector.azure.connect", r.ok ? "ok" : "error");
+    await store.audit(user(req).id, "connector.azure.connect", r.ok ? "ok" : "error");
     if (!r.ok) return bad(reply, cliError(r.text), 422);
     const who = (r.json as { user?: string | { displayName?: string } } | null)?.user;
     const name = typeof who === "string" ? who : who?.displayName;
-    if (name && config.tenancy === "single" && user(req).role === "owner") store.updateUser(user(req).id, { name });
+    if (name && config.tenancy === "single" && user(req).role === "owner") await store.updateUser(user(req).id, { name });
     return { ok: true, user: name ?? null };
   });
 
@@ -252,7 +252,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps, connectors: Con
     const body = parse(Schemas.azureDisconnect, req.body, reply);
     if (!body) return;
     const r = await connectors.disconnectAzure(user(req), ws(req), body.organizationUrl);
-    store.audit(user(req).id, "connector.azure.disconnect", r.ok ? "ok" : "error");
+    await store.audit(user(req).id, "connector.azure.disconnect", r.ok ? "ok" : "error");
     if (!r.ok) return bad(reply, cliError(r.text), 422);
     return { ok: true };
   });
@@ -267,7 +267,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps, connectors: Con
     if (action === "login") r = await connectors.login(user(req), ws(req), which);
     else if (which === "chat") return bad(reply, MSG.notFound, 404); // el CLI no tiene logout de chat
     else r = await connectors.logout(user(req), ws(req), which);
-    store.audit(user(req).id, `connector.${which}.${action}`, r.ok ? "ok" : "error");
+    await store.audit(user(req).id, `connector.${which}.${action}`, r.ok ? "ok" : "error");
     if (!r.ok) return bad(reply, cliError(r.text), 422);
     return { ok: true };
   });
@@ -312,7 +312,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps, connectors: Con
     const body = parse(Schemas.profile, req.body, reply);
     if (!body) return;
     const r = await connectors.saveProfile(user(req), ws(req), body);
-    store.audit(user(req).id, "onboarding.profile", r.ok ? "ok" : "error");
+    await store.audit(user(req).id, "onboarding.profile", r.ok ? "ok" : "error");
     if (!r.ok) return bad(reply, cliError(r.text), 422);
     return { ok: true };
   });

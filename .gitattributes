@@ -1,0 +1,2 @@
+# Scripts que corren dentro de contenedores Linux: siempre con LF, aunque el checkout sea en Windows (CRLF los rompe).
+*.sh text eol=lf

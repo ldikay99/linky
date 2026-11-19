@@ -33,14 +33,14 @@ export function createAuth(config: Config, store: Store) {
   }
 
   /** Sesión automática de la dueña del equipo (solo modo single). */
-  function autoSession(reply: FastifyReply): { hash: string; userId: string; csrf: string } | null {
+  async function autoSession(reply: FastifyReply): Promise<{ hash: string; userId: string; csrf: string } | null> {
     if (config.tenancy !== "single") return null;
-    const owner = store.owner();
+    const owner = await store.owner();
     if (!owner) return null;
     const sid = randomToken();
     const csrf = randomToken(24);
     const hash = sha256(sid);
-    store.createSession(hash, owner.id, csrf, config.sessionMs);
+    await store.createSession(hash, owner.id, csrf, config.sessionMs);
     reply.setCookie(SESSION_COOKIE, sid, cookieOptions(config.sessionMs));
     return { hash, userId: owner.id, csrf };
   }
@@ -59,15 +59,15 @@ export function createAuth(config: Config, store: Store) {
       if (PUBLIC.has(url)) return;
       const sid = req.cookies[SESSION_COOKIE];
       let hash = sid ? sha256(sid) : null;
-      let session = hash ? store.session(hash) : null;
+      let session = hash ? await store.session(hash) : null;
       if (!session && req.method === "GET") {
-        const created = autoSession(reply);
+        const created = await autoSession(reply);
         if (created) {
           hash = created.hash;
           session = { userId: created.userId, csrf: created.csrf, expiresAt: Date.now() + config.sessionMs };
         }
       }
-      const user = session ? store.userById(session.userId) : null;
+      const user = session ? await store.userById(session.userId) : null;
       if (!session || !user || !hash) {
         return reply.code(401).send({ error: config.tenancy === "multi" ? MSG.multiLogin : MSG.session, code: "session" });
       }
@@ -81,7 +81,7 @@ export function createAuth(config: Config, store: Store) {
     });
 
     app.post("/api/auth/logout", async (req, reply) => {
-      if (req.sessionHash) store.deleteSession(req.sessionHash);
+      if (req.sessionHash) await store.deleteSession(req.sessionHash);
       reply.clearCookie(SESSION_COOKIE, { path: "/" });
       return { ok: true };
     });

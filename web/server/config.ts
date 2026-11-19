@@ -42,6 +42,14 @@ const Env = z.object({
   LINKY_EMBED_MODEL: z.string().optional(),
   LINKY_STT_PROVIDER: z.enum(["browser", "openai"]).default("browser"),
   LINKY_STT_MODEL: z.string().optional(),
+  /** PostgreSQL (servidor del área). Sin ella, SQLite en el directorio de datos. Mejor sin contraseña en la URL. */
+  DATABASE_URL: z.string().optional(),
+  /** Archivo con la contraseña de la base (secreto de Docker/Kubernetes); tiene prioridad sobre la de la URL. */
+  LINKY_WEB_DATABASE_PASSWORD_FILE: z.string().optional(),
+  /** Certificado (PEM) de la autoridad que firmó el del servidor de PostgreSQL, si no es una pública. */
+  LINKY_WEB_DATABASE_CA_FILE: z.string().optional(),
+  /** 1 solo en una red privada del mismo anfitrión (red interna de Docker Compose): permite sslmode=disable fuera de loopback. */
+  LINKY_WEB_DATABASE_ALLOW_PLAINTEXT: z.enum(["0", "1"]).default("0"),
 });
 
 export type Config = ReturnType<typeof loadConfig>;
@@ -59,6 +67,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
   if ((e.LINKY_WEB_TENANCY === "multi" || e.LINKY_WEB_SECRET_BACKEND === "vault") && !e.LINKY_WEB_MASTER_KEY) {
     throw new Error("En modo multi la clave maestra va por LINKY_WEB_MASTER_KEY (o el gestor de secretos del despliegue).");
   }
+  const databaseUrl = e.DATABASE_URL?.trim();
+  const database = databaseUrl
+    ? {
+        url: databaseUrl,
+        password: e.LINKY_WEB_DATABASE_PASSWORD_FILE ? readFileSync(e.LINKY_WEB_DATABASE_PASSWORD_FILE, "utf8").trim() : undefined,
+        ca: e.LINKY_WEB_DATABASE_CA_FILE ? readFileSync(e.LINKY_WEB_DATABASE_CA_FILE, "utf8") : undefined,
+        allowPlaintext: e.LINKY_WEB_DATABASE_ALLOW_PLAINTEXT === "1",
+      }
+    : null;
   const localOrigin = `http://${e.LINKY_WEB_HOST === "::1" ? "[::1]" : e.LINKY_WEB_HOST}:${e.LINKY_WEB_PORT}`;
   const origins = new Set<string>([localOrigin, `http://localhost:${e.LINKY_WEB_PORT}`, `http://127.0.0.1:${e.LINKY_WEB_PORT}`]);
   if (e.LINKY_WEB_PUBLIC_URL) origins.add(new URL(e.LINKY_WEB_PUBLIC_URL).origin);
@@ -72,6 +89,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
     origins,
     dataDir: path.resolve(e.LINKY_WEB_DATA_DIR ?? path.join(homedir(), ".linky-web")),
     tenancy: e.LINKY_WEB_TENANCY,
+    database,
     masterKey: e.LINKY_WEB_MASTER_KEY,
     secretBackend: e.LINKY_WEB_SECRET_BACKEND,
     interactiveLogin: e.LINKY_WEB_INTERACTIVE_LOGIN === "1",

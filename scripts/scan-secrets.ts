@@ -13,7 +13,8 @@ const PATTERNS: Array<{ name: string; re: RegExp }> = [
   { name: "auth-token-cookie", re: /sb-[a-z0-9]+-auth-token/i },
   { name: "bearer-jwt", re: /eyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]{20,}\./ },
   { name: "azure-pat-header", re: /Basic\s+[A-Za-z0-9+/=]{20,}/ },
-  { name: "password-url", re: /https?:\/\/[^\/\s]+:[^@\/\s]+@/ },
+  // URL con contraseña, web o PostgreSQL (DATABASE_URL va sin contraseña: esta va en un archivo de secreto).
+  { name: "password-url", re: /(?:https?|postgres(?:ql)?):\/\/[^\/\s]+:[^@\/\s]+@/ },
   // PAT Azure DevOps (formato actual: 84 caracteres con firma "AZDO" en la posición 77).
   { name: "azure-pat", re: /\b[A-Za-z0-9]{76}AZDO[A-Za-z0-9]{4}\b/ },
   // Cookie de sesión Supabase/Ripor serializada.
@@ -38,6 +39,7 @@ const ALLOW_PASSWORD_URL_FIXTURE = new Set([
   "tests/orgUrl.test.ts",
   "tests/ripor-policy.test.ts",
   "tests/hours-dev-meetings.test.ts",
+  "web/tests/store.test.ts",
 ]);
 
 async function main() {

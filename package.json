@@ -26,8 +26,11 @@
     "web": "npm --prefix web run build && npm --prefix web start",
     "web:dev": "npm --prefix web run dev",
     "web:test": "npm --prefix web test",
+    "web:test:pg": "node web/scripts/test-postgres.mjs",
     "docker:init": "node web/scripts/docker-init.mjs",
-    "docker:up": "node web/scripts/docker-init.mjs && docker compose up -d --build"
+    "docker:up": "node web/scripts/docker-init.mjs && docker compose up -d --build",
+    "db:up": "node web/scripts/docker-init.mjs && docker compose --profile postgres up -d --wait postgres",
+    "db:down": "docker compose --profile postgres stop postgres"
   },
   "dependencies": {
     "@napi-rs/keyring": "^2.1.2",

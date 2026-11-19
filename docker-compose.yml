@@ -25,8 +25,20 @@ services:
       GOOGLE_VERTEX_LOCATION: ${GOOGLE_VERTEX_LOCATION:-}
       MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      # Base de datos: vacío = SQLite en el volumen linky-data. Con el perfil postgres (ver web/README.md):
+      # LINKY_WEB_DATABASE_URL=postgres://linky@postgres:5432/linky?sslmode=disable y LINKY_WEB_DATABASE_ALLOW_PLAINTEXT=1
+      # (la red interna de Compose no sale del anfitrión). Una base en otro servidor va con sslmode=verify-full.
+      DATABASE_URL: ${LINKY_WEB_DATABASE_URL:-}
+      LINKY_WEB_DATABASE_PASSWORD_FILE: /run/secrets/linky_db_password
+      LINKY_WEB_DATABASE_ALLOW_PLAINTEXT: ${LINKY_WEB_DATABASE_ALLOW_PLAINTEXT:-0}
     secrets:
       - linky_master_key
+      - linky_db_password
+    depends_on:
+      # Solo si el perfil postgres está activo; sin él, la web arranca sola con SQLite.
+      postgres:
+        condition: service_healthy
+        required: false
     volumes:
       - linky-data:/data
     read_only: true
@@ -42,9 +54,60 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
 
+  # PostgreSQL para desarrollo local y pruebas. Perfil "postgres": `docker compose up` a secas no lo arranca.
+  # Primera vez: `npm run db:up` (crea las contraseñas en .secrets/ y espera a que esté sano). Ver web/README.md.
+  postgres:
+    profiles: [postgres]
+    # PostgreSQL 18.7 (última estable) sobre Debian 13 (trixie), fijada por digest (índice multi-arquitectura).
+    # Para actualizarla: https://hub.docker.com/v2/repositories/library/postgres/tags?name=18-trixie (campo digest).
+    image: postgres:18.7-trixie@sha256:e754b839f447639b7004895f4d8a4bfcb4e9dbe3a1bc035f27f646562a16fd61
+    restart: unless-stopped
+    # Sin root desde el inicio (sin gosu ni chown): el volumen ya es del usuario postgres de la imagen.
+    user: "999:999"
+    # Solo en el loopback del anfitrión y en un puerto propio (el 5432 suele estar ocupado por otra instalación).
+    ports:
+      - "127.0.0.1:${LINKY_PG_PORT:-5478}:5432"
+    environment:
+      # Administrador solo para mantenimiento; la web y las pruebas usan el rol linky (sin superusuario, con RLS).
+      POSTGRES_USER: linky_admin
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_admin_password
+      LINKY_DB_PASSWORD_FILE: /run/secrets/linky_db_password
+    secrets:
+      - postgres_admin_password
+      - linky_db_password
+    volumes:
+      - linky-pg-data:/var/lib/postgresql
+      # Crea el rol linky y las bases linky y linky_test la primera vez que arranca el volumen.
+      - ./web/docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
+    read_only: true
+    tmpfs:
+      - /var/run/postgresql:size=8m,uid=999,gid=999,mode=2775
+      - /tmp:size=64m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    shm_size: 128m
+    pids_limit: 256
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "pg_isready", "--host=127.0.0.1", "--username=linky", "--dbname=linky"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 30s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
 volumes:
   linky-data:
+  linky-pg-data:
 
 secrets:
   linky_master_key:
     file: ${LINKY_SECRETS_DIR:-./.secrets}/master.key
+  postgres_admin_password:
+    file: ${LINKY_SECRETS_DIR:-./.secrets}/postgres-admin.password
+  linky_db_password:
+    file: ${LINKY_SECRETS_DIR:-./.secrets}/postgres.password

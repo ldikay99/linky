@@ -32,7 +32,7 @@ const DIST = path.resolve(HERE, "../dist");
 async function main() {
   const config = loadConfig();
   const keys = new KeyRing(await resolveMasterKey(config.masterKey));
-  const store = openStore(config.dataDir, keys);
+  const store = await openStore(config.dataDir, keys, config.database);
   const files = createFiles(config.dataDir, keys, store);
   const workspaces = createWorkspaces(config, keys);
   const ai = createAi(config);
@@ -114,24 +114,29 @@ async function main() {
   }
 
   // Dueña del equipo (modo single): se crea la primera vez con el usuario del sistema.
-  if (!store.owner()) {
+  if (!(await store.owner())) {
     // En contenedores el usuario del sistema no es la persona: el nombre real llega al conectar Azure.
     const os = userInfo().username;
-    store.createUser(process.env.LINKY_WEB_OWNER_NAME?.trim() || (["node", "root", "app"].includes(os) ? "" : os), null, "owner");
+    await store.createUser(process.env.LINKY_WEB_OWNER_NAME?.trim() || (["node", "root", "app"].includes(os) ? "" : os), null, "owner");
   }
-  store.purgeExpired();
-  setInterval(() => store.purgeExpired(), 3600_000).unref();
+  await store.purgeExpired();
+  setInterval(() => void store.purgeExpired().catch((e: Error) => app.log.warn({ err: e.message }, "no se pudieron purgar las sesiones vencidas")), 3600_000).unref();
 
   await app.listen({ host: config.host, port: config.port });
   const url = config.dev ? config.publicUrl.replace(`:${config.port}`, ":5173") : config.publicUrl;
   process.stdout.write(`\n  Linky web lista en ${url}\n\n`);
   if (config.openBrowser) openInBrowser(url);
   if (ai.problem) app.log.warn(ai.problem);
+  for (const w of store.warnings) app.log.warn(w);
+  if (store.migration.applied.length) {
+    const sobre = store.migration.existing ? " sobre una base existente" : "";
+    process.stdout.write(`  Base de datos (${store.backend}) en la versión ${store.migration.version}: migraciones ${store.migration.applied.join(", ")} aplicadas${sobre}.\n\n`);
+  }
 
   const stop = async () => {
     killAllChildren();
     await app.close().catch(() => undefined);
-    store.close();
+    await store.close().catch(() => undefined);
     process.exit(0);
   };
   for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"] as const) process.on(sig, () => void stop());

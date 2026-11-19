@@ -17,8 +17,8 @@ import { openStore, type StoredHistory } from "../server/store/db.js";
 async function setup() {
   const dir = await mkdtemp(path.join(tmpdir(), "linky-mem-"));
   const keys = new KeyRing(randomBytes(32));
-  const store = openStore(dir, keys);
-  const user = store.createUser("Persona", null, "member");
+  const store = await openStore(dir, keys);
+  const user = await store.createUser("Persona", null, "member");
   return { dir, keys, store, user, memory: createMemory(store, null) };
 }
 
@@ -35,7 +35,7 @@ describe("memoria de la persona", () => {
     expect((await memory.remember(user.id, "las tasks de ia llevan davis diaz y 005-sgdea")).duplicate).toBe(true);
     expect((await memory.remember(user.id, "mi token es abcd1234efgh5678ijkl9012mnop3456qrst")).reason).toBe("secreto");
     expect((await memory.remember(user.id, "contraseña: Sup3rSecreta")).reason).toBe("secreto");
-    expect(store.memories(user.id, "fact").map((m) => m.text)).toEqual(["Las Tasks de IA llevan DAVIS DIAZ y 005-SGDEA"]);
+    expect((await store.memories(user.id, "fact")).map((m) => m.text)).toEqual(["Las Tasks de IA llevan DAVIS DIAZ y 005-SGDEA"]);
   });
 
   it("las URL y los IDs normales no se confunden con secretos", () => {
@@ -46,18 +46,18 @@ describe("memoria de la persona", () => {
 
   it("indexa turnos para buscarlos después y se borran con su conversación", async () => {
     const { store, user, memory } = await setup();
-    const conv = store.createConversation(user.id, "PQRD");
+    const conv = await store.createConversation(user.id, "PQRD");
     await memory.indexTurn(user.id, conv, "registra lo de observaciones de PQRD", "Creé la Task 565722 con 4 horas bajo la HU 560365.");
     const hits = await memory.search(user.id, "observaciones PQRD");
     expect(hits[0].text).toMatch(/565722/);
-    store.deleteConversation(user.id, conv);
-    expect(store.countMemories(user.id, "chunk")).toBe(0);
+    await store.deleteConversation(user.id, conv);
+    expect(await store.countMemories(user.id, "chunk")).toBe(0);
   });
 
   it("el contenido de la memoria va cifrado en la base", async () => {
     const { dir, store, user, memory } = await setup();
     await memory.remember(user.id, "Prefiere descripciones cortas");
-    store.close();
+    await store.close();
     const { readFile } = await import("node:fs/promises");
     expect((await readFile(path.join(dir, "linky-web.db"))).includes(Buffer.from("Prefiere descripciones cortas"))).toBe(false);
   });
