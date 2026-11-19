@@ -14,10 +14,10 @@ jobs:
       # CI sin keyring de escritorio: secretos solo en memoria.
       LINKY_SECRET_BACKEND: session
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: "24"
+          node-version: "26"
           cache: npm
       - run: npm ci
       - run: npm run typecheck
@@ -38,10 +38,10 @@ jobs:
     env:
       LINKY_SECRET_BACKEND: session
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: "24"
+          node-version: "26"
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -56,5 +56,5 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: docker build -t linky-web:ci .
