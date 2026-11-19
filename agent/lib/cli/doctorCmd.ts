@@ -29,7 +29,13 @@ async function attempt(area: string, fn: () => Promise<Omit<Check, "area">>): Pr
 export async function runDoctor(opts: { dataDir?: string; skipBrowser?: boolean }): Promise<{ ok: boolean; checks: Check[] }> {
   const checks: Check[] = [];
   const major = Number(process.versions.node.split(".")[0]);
-  checks.push({ area: "node", ok: major >= 24, detail: `Node ${process.versions.node}`, fix: major >= 24 ? undefined : "Instala Node.js 24+" });
+  // Node 24 sigue en mantenimiento y funciona; la versión objetivo (engines, CI y Docker) es Node 26 LTS.
+  checks.push({
+    area: "node",
+    ok: major >= 24,
+    detail: major >= 26 ? `Node ${process.versions.node}` : `Node ${process.versions.node} (recomendado: Node 26 LTS)`,
+    fix: major >= 24 ? undefined : "Instala Node.js 26 (LTS)",
+  });
 
   checks.push(
     await attempt("navegador", async () => {

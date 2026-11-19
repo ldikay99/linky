@@ -1,8 +1,10 @@
 # syntax=docker/dockerfile:1.7
-# Linky web + CLI en un contenedor. Node 24 (LTS) sobre Debian slim, usuario sin privilegios.
+# Linky web + CLI en un contenedor. Node 26 (LTS) sobre Debian 13 (trixie) slim, usuario sin privilegios.
 # Tres etapas: build (compila la interfaz y audita), deps (solo dependencias de producción), final (solo lo que corre).
 
-ARG NODE_IMAGE=node:24-bookworm-slim
+# Imagen fijada por digest (índice multi-arquitectura) para builds reproducibles. Etiqueta: node:26.13.1-trixie-slim.
+# Para actualizarla: https://hub.docker.com/v2/repositories/library/node/tags?name=26-trixie-slim (campo digest).
+ARG NODE_IMAGE=node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc
 
 # ---------- compilación de la interfaz + auditoría ----------
 FROM ${NODE_IMAGE} AS build

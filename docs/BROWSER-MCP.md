@@ -7,7 +7,7 @@ acceso a un **cliente MCP local stdio**, las herramientas autorizadas y la skill
 instalar esta configuración en **el dispositivo de la persona**. Un chatbot sin MCP ni
 herramientas locales no puede usarla directamente. El esquema exterior del cliente varía.
 
-- Núcleo determinista: `npm run linky` (Node 24 y `npm ci`).
+- Núcleo determinista: `npm run linky` (Node 26 y `npm ci`).
 - Navegador: servidor público `@playwright/mcp`, iniciado por el cliente MCP destinatario.
 - Azure: PAT en keyring/env/session → **REST oficial Azure WIT**. Con PAT válido NO
   pedir navegador Azure para leer tareas. Ripor usa solo UI con sesión local dedicada.

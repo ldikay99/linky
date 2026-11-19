@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img alt="Node.js 24" src="https://img.shields.io/badge/Node.js-24-339933?logo=nodedotjs&logoColor=white">
+  <img alt="Node.js 26" src="https://img.shields.io/badge/Node.js-26-339933?logo=nodedotjs&logoColor=white">
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white">
   <img alt="Azure DevOps" src="https://img.shields.io/badge/Azure_DevOps-REST-0078D7?logo=azuredevops&logoColor=white">
   <img alt="Playwright" src="https://img.shields.io/badge/Playwright-solo_login-2EAD33?logo=playwright&logoColor=white">
@@ -71,7 +71,7 @@ No es una app ni una página web: son comandos locales. Funciona igual en **Wind
 
 ## Empezar
 
-Requisitos: **Node.js 24** y Google Chrome o Microsoft Edge (solo para iniciar sesión).
+Requisitos: **Node.js 26** y Google Chrome o Microsoft Edge (solo para iniciar sesión).
 
 ```bash
 git clone https://github.com/ldikay99/linky.git

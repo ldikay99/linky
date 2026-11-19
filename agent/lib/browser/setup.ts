@@ -28,7 +28,7 @@ export function browserSetupPlan(dataDir?: string) {
     genericConfig: { mcpServers: { "linky-ripor": server } },
     vscodeConfig: { servers: { "linky-ripor": { type: "stdio", ...server } } },
     manualInstall: [
-      "En el dispositivo destinatario: Node 24 (Linky), cliente MCP con stdio y acceso a pantalla para primer login.",
+      "En el dispositivo destinatario: Node 26 (Linky), cliente MCP con stdio y acceso a pantalla para primer login.",
       "Importar MANUALMENTE uno de los archivos generados en la configuración del cliente; no habilitar ambos.",
       "Al iniciar el servidor, npx descarga/ejecuta @playwright/mcp@latest de npm (revisar/pinear versión antes de uso estable).",
       "Si falta Chromium: ejecutar explícitamente en ese dispositivo: npx playwright install chromium (versión compatible con el MCP elegido).",
